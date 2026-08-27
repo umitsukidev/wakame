@@ -16,6 +16,7 @@ use sudachi::{
 
 pub struct TokenizeTask {
     dictionary: Arc<JapaneseDictionary>,
+    mode: Mode,
     text: String,
 }
 
@@ -27,7 +28,7 @@ impl Task for TokenizeTask {
     fn compute(&mut self) -> Result<Self::Output> {
         let tokenizer = StatelessTokenizer::new(Arc::clone(&self.dictionary));
         let morphemes = tokenizer
-            .tokenize(&self.text, Mode::C, false)
+            .tokenize(&self.text, self.mode, false)
             .map_err(|error| Error::from_reason(error.to_string()))?;
 
         Ok(morphemes
@@ -44,12 +45,25 @@ impl Task for TokenizeTask {
 #[napi]
 pub struct SudachiTokenizer {
     dictionary: Arc<JapaneseDictionary>,
+    mode: Mode,
 }
 
 #[napi]
 impl SudachiTokenizer {
+    fn parse_split_mode(split_mode: Option<String>) -> Result<Mode> {
+        match split_mode.as_deref().unwrap_or("C") {
+            "A" => Ok(Mode::A),
+            "B" => Ok(Mode::B),
+            "C" => Ok(Mode::C),
+            value => Err(Error::from_reason(format!(
+                "invalid Sudachi split mode \"{value}\"; expected one of \"A\", \"B\", or \"C\"",
+            ))),
+        }
+    }
+
     #[napi(constructor)]
-    pub fn new(system_dictionary_path: String) -> Result<Self> {
+    pub fn new(system_dictionary_path: String, split_mode: Option<String>) -> Result<Self> {
+        let mode = Self::parse_split_mode(split_mode)?;
         let dictionary_file = File::open(&system_dictionary_path).map_err(|error| {
             Error::from_reason(format!(
                 "failed to open system dictionary at {system_dictionary_path}: {error}",
@@ -68,6 +82,7 @@ impl SudachiTokenizer {
 
         Ok(Self {
             dictionary: Arc::new(dictionary),
+            mode,
         })
     }
 
@@ -75,6 +90,7 @@ impl SudachiTokenizer {
     pub fn tokenize(&self, text: String) -> AsyncTask<TokenizeTask> {
         AsyncTask::new(TokenizeTask {
             dictionary: Arc::clone(&self.dictionary),
+            mode: self.mode,
             text,
         })
     }

@@ -3,12 +3,21 @@ import { fileURLToPath } from "node:url";
 
 import type { Dictionary, Tokenizer } from "@wakamejs/core";
 
+export type SudachiSplitMode = "A" | "B" | "C";
+
+export interface CreateSudachiTokenizerOptions {
+	splitMode?: SudachiSplitMode;
+}
+
 interface NativeTokenizer {
 	tokenize(text: string): Promise<readonly string[]>;
 }
 
 interface NativeBindingModule {
-	SudachiTokenizer: new (systemDictionaryPath: string) => NativeTokenizer;
+	SudachiTokenizer: new (
+		systemDictionaryPath: string,
+		splitMode: SudachiSplitMode,
+	) => NativeTokenizer;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -64,12 +73,21 @@ async function resolveSystemDictionaryPath(): Promise<string> {
 }
 
 /** Create a Node.js Sudachi tokenizer backed by the bundled system dictionary. */
-export async function createSudachiTokenizer(): Promise<Tokenizer<string, string>> {
+export async function createSudachiTokenizer(
+	options?: CreateSudachiTokenizerOptions,
+): Promise<Tokenizer<string, string>> {
+	const splitMode = options?.splitMode;
+	if (splitMode !== undefined && splitMode !== "A" && splitMode !== "B" && splitMode !== "C") {
+		throw new Error(
+			`Invalid Sudachi split mode "${String(splitMode)}"; expected one of "A", "B", or "C".`,
+		);
+	}
+	const selectedSplitMode: SudachiSplitMode = splitMode ?? "C";
 	const [systemDictionaryPath, nativeBinding] = await Promise.all([
 		resolveSystemDictionaryPath(),
 		loadNativeBinding(),
 	]);
-	const tokenizer = new nativeBinding.SudachiTokenizer(systemDictionaryPath);
+	const tokenizer = new nativeBinding.SudachiTokenizer(systemDictionaryPath, selectedSplitMode);
 
 	return {
 		async tokenize(text: string, dictionary: Dictionary<string>): Promise<readonly string[]> {
