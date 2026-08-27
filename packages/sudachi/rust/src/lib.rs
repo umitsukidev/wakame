@@ -1,14 +1,18 @@
-use std::fs::File;
-use std::sync::Arc;
-
 use memmap2::Mmap;
 use napi::bindgen_prelude::{AsyncTask, Env, Error, Result, Task};
 use napi_derive::napi;
-use sudachi::analysis::stateless_tokenizer::StatelessTokenizer;
-use sudachi::analysis::{Mode, Tokenize};
-use sudachi::config::Config;
-use sudachi::dic::dictionary::JapaneseDictionary;
-use sudachi::dic::storage::{Storage, SudachiDicData};
+use std::{fs::File, sync::Arc};
+use sudachi::{
+    analysis::{
+        stateless_tokenizer::StatelessTokenizer,
+        {Mode, Tokenize},
+    },
+    config::Config,
+    dic::{
+        dictionary::JapaneseDictionary,
+        storage::{Storage, SudachiDicData},
+    },
+};
 
 pub struct TokenizeTask {
     dictionary: Arc<JapaneseDictionary>,
