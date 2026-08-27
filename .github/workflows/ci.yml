@@ -1,0 +1,22 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v2
+        with:
+          cache: true
+      - run: pnpm exec oxfmt --check .
+      - run: pnpm exec oxlint .
+      - run: pnpm -r run typecheck
+      - run: pnpm --filter @wakame/core run build

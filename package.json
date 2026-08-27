@@ -11,6 +11,8 @@
 		"prepare": "husky"
 	},
 	"devDependencies": {
+		"@changesets/cli": "^3.0.1",
+		"@changesets/config": "^4.0.0",
 		"@types/node": "^24.13.3",
 		"husky": "^9.1.7",
 		"lint-staged": "^17.3.0",
