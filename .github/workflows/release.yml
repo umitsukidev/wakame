@@ -1,0 +1,214 @@
+name: Release packages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: release-packages
+  cancel-in-progress: false
+
+env:
+  DICTIONARY_VERSION: 20260723
+
+jobs:
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      core_changed: ${{ steps.detect.outputs.core_changed }}
+      core_version: ${{ steps.detect.outputs.core_version }}
+      sudachi_changed: ${{ steps.detect.outputs.sudachi_changed }}
+      sudachi_version: ${{ steps.detect.outputs.sudachi_version }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - uses: pnpm/setup@v2
+        with:
+          install: false
+      - id: detect
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          EVENT_BEFORE: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          version_for() {
+            node -e 'const fs = require("node:fs"); console.log(JSON.parse(fs.readFileSync(process.argv[1], "utf8")).version)' "$1"
+          }
+          detect_package() {
+            local id="$1" package="$2" tag_prefix="$3"
+            local current previous changed=false version_changed=false
+            current="$(version_for "$package")"
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              version_changed=true
+            elif [[ -n "$EVENT_BEFORE" && ! "$EVENT_BEFORE" =~ ^0+$ ]]; then
+              previous="$(git show "${EVENT_BEFORE}:${package}" | version_for /dev/stdin)"
+              [[ "$current" != "$previous" ]] && version_changed=true
+            fi
+            if [[ "$version_changed" == true ]] && [[ -z "$(git tag --list "${tag_prefix}${current}")" ]]; then
+              changed=true
+            else
+              changed=false
+            fi
+            echo "${id}_changed=${changed}" >> "$GITHUB_OUTPUT"
+            echo "${id}_version=${current}" >> "$GITHUB_OUTPUT"
+          }
+          detect_package core packages/core/package.json '@wakamejs/core@'
+          detect_package sudachi packages/sudachi/package.json '@wakamejs/sudachi@'
+
+  core:
+    needs: detect
+    if: needs.detect.outputs.core_changed == 'true'
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ needs.detect.outputs.core_version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v2
+        with:
+          cache: true
+      - name: Configure npm authentication for the initial publish
+        if: env.NPM_TOKEN != ''
+        run: npm config set --location=user //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - run: pnpm --filter @wakamejs/core run build
+      - working-directory: packages/core
+        run: npm publish --provenance --access public
+      - run: gh release create "@wakamejs/core@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/core ${PACKAGE_VERSION}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sudachi-build:
+    needs: detect
+    if: needs.detect.outputs.sudachi_changed == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            runner: ubuntu-latest
+            suffix: linux-x64-gnu
+          - target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+            suffix: linux-arm64-gnu
+          - target: x86_64-pc-windows-msvc
+            runner: windows-latest
+            suffix: win32-x64-msvc
+          - target: aarch64-pc-windows-msvc
+            runner: windows-11-arm
+            suffix: win32-arm64-msvc
+          - target: aarch64-apple-darwin
+            runner: macos-15
+            suffix: darwin-arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v2
+        with:
+          cache: true
+      - uses: actions/cache@v6
+        with:
+          path: |
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            packages/sudachi/rust/target/
+          key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ hashFiles('packages/sudachi/rust/Cargo.lock') }}
+          restore-keys: |
+            cargo-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
+      - working-directory: packages/sudachi
+        run: >-
+          pnpm exec napi build --platform --esm --release
+          --target "${{ matrix.target }}"
+          --output-dir generated
+          --js native-binding.js --dts native-binding.d.ts
+          --manifest-path rust/Cargo.toml
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sudachi-native-${{ matrix.suffix }}
+          path: packages/sudachi/generated/wakame-sudachi.${{ matrix.suffix }}.node
+          if-no-files-found: error
+      - if: matrix.suffix == 'linux-x64-gnu'
+        uses: actions/upload-artifact@v4
+        with:
+          name: sudachi-loader
+          path: |
+            packages/sudachi/generated/native-binding.js
+            packages/sudachi/generated/native-binding.d.ts
+          if-no-files-found: error
+
+  sudachi:
+    needs: [detect, core, sudachi-build]
+    if: >-
+      always() &&
+      needs.detect.outputs.sudachi_changed == 'true' &&
+      needs.sudachi-build.result == 'success' &&
+      (needs.core.result == 'success' || needs.core.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ needs.detect.outputs.sudachi_version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v2
+        with:
+          cache: true
+      - name: Configure npm authentication for the initial publish
+        if: env.NPM_TOKEN != ''
+        run: npm config set --location=user //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - uses: actions/download-artifact@v4
+        with:
+          name: sudachi-loader
+          path: packages/sudachi/generated
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: sudachi-native-*
+          merge-multiple: true
+          path: packages/sudachi/generated
+      - working-directory: packages/core
+        run: pnpm run build
+      - working-directory: packages/sudachi
+        run: pnpm exec tsc -p tsconfig.json
+      - working-directory: packages/sudachi
+        run: |
+          mkdir -p resources assets
+          curl --fail --location --retry 3 \
+            https://raw.githubusercontent.com/WorksApplications/sudachi.rs/v0.6.11/fetch_dictionary.sh \
+            | sh -s -- "$DICTIONARY_VERSION" core
+          mv resources/system.dic assets/system.dic
+          test -s assets/system.dic
+          pnpm exec napi create-npm-dirs --npm-dir npm
+          pnpm exec napi artifacts --output-dir generated --npm-dir npm
+          # napi-rs/cli 3.x exposes --gh-release as a zero-arity flag. Clearing
+          # GITHUB_REPOSITORY disables its default release creation while
+          # --skip-optional-publish keeps publication under this workflow.
+          GITHUB_REPOSITORY= pnpm exec napi pre-publish --tag-style npm --root-publisher pnpm --skip-optional-publish --npm-dir npm
+          for suffix in linux-x64-gnu linux-arm64-gnu win32-x64-msvc win32-arm64-msvc darwin-arm64; do
+            test -s "npm/${suffix}/wakame-sudachi.${suffix}.node"
+          done
+      - working-directory: packages/sudachi
+        run: |
+          for platform_package in npm/*; do
+            npm publish --provenance --access public "$platform_package"
+          done
+          mkdir -p .release
+          pnpm pack --pack-destination .release
+          root_tarball="$(find .release -maxdepth 1 -type f -name '*.tgz' -print -quit)"
+          test -n "$root_tarball"
+          tar -xOf "$root_tarball" package/package.json > .release/package.json
+          node -e 'const fs = require("node:fs"); const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (pkg.dependencies?.["@wakamejs/core"]?.startsWith("workspace:")) throw new Error("pnpm pack did not rewrite @wakamejs/core workspace dependency");' .release/package.json
+          test -n "$(tar -tzf "$root_tarball" | grep -E '^package/assets/system\.dic$')"
+          if tar -tzf "$root_tarball" | grep -Eq '^package/generated/.*\.node$'; then
+            echo "root package unexpectedly contains native binaries"
+            exit 1
+          fi
+          npm publish "$root_tarball" --provenance --access public
+      - run: gh release create "@wakamejs/sudachi@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/sudachi ${PACKAGE_VERSION}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

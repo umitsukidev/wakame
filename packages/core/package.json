@@ -1,7 +1,12 @@
 {
-	"name": "@wakame/core",
-	"version": "0.0.1",
+	"name": "@wakamejs/core",
+	"version": "0.0.1-alpha.1",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/umitsukidev/wakame.git",
+		"directory": "packages/core"
+	},
 	"files": [
 		"dist"
 	],

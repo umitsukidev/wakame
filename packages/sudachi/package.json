@@ -1,11 +1,17 @@
 {
-	"name": "@wakame/sudachi",
-	"version": "0.0.1",
+	"name": "@wakamejs/sudachi",
+	"version": "0.0.1-alpha.1",
 	"description": "Sudachi tokenizer for Wakame",
 	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/umitsukidev/wakame.git",
+		"directory": "packages/sudachi"
+	},
 	"files": [
 		"dist",
-		"generated",
+		"generated/native-binding.js",
+		"generated/native-binding.d.ts",
 		"assets"
 	],
 	"type": "module",
@@ -29,14 +35,22 @@
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
-		"@wakame/core": "workspace:*"
+		"@wakamejs/core": "workspace:*"
 	},
 	"devDependencies": {
 		"@napi-rs/cli": "^3.0.0",
 		"@types/node": "^24.0.0"
 	},
 	"napi": {
-		"binaryName": "wakame-sudachi"
+		"binaryName": "wakame-sudachi",
+		"rootPublisher": "pnpm",
+		"targets": [
+			"x86_64-unknown-linux-gnu",
+			"aarch64-unknown-linux-gnu",
+			"x86_64-pc-windows-msvc",
+			"aarch64-pc-windows-msvc",
+			"aarch64-apple-darwin"
+		]
 	},
 	"engines": {
 		"node": ">=20"
