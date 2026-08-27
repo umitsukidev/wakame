@@ -76,10 +76,10 @@ jobs:
           cache: true
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
-        run: npm config set --location=user //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
       - run: pnpm --filter @wakamejs/core run build
       - working-directory: packages/core
-        run: npm publish --provenance --access public
+        run: pnpm publish --provenance --access public --no-git-checks
       - run: gh release create "@wakamejs/core@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/core ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -161,7 +161,7 @@ jobs:
           cache: true
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
-        run: npm config set --location=user //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
       - uses: actions/download-artifact@v4
         with:
           name: sudachi-loader
@@ -195,7 +195,7 @@ jobs:
       - working-directory: packages/sudachi
         run: |
           for platform_package in npm/*; do
-            npm publish --provenance --access public "$platform_package"
+            pnpm publish --provenance --access public --no-git-checks "$platform_package"
           done
           mkdir -p .release
           pnpm pack --pack-destination .release
@@ -208,7 +208,7 @@ jobs:
             echo "root package unexpectedly contains native binaries"
             exit 1
           fi
-          npm publish "$root_tarball" --provenance --access public
+          pnpm publish "$root_tarball" --provenance --access public --no-git-checks
       - run: gh release create "@wakamejs/sudachi@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/sudachi ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
