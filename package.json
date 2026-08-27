@@ -1,0 +1,20 @@
+{
+  "name": "wakame",
+  "version": "0.0.1",
+  "private": true,
+  "keywords": [],
+  "license": "MIT",
+  "author": "",
+  "type": "module",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "devEngines": {
+    "packageManager": {
+      "name": "pnpm",
+      "version": "11.24.0",
+      "onFail": "download"
+    }
+  },
+  "packageManager": "pnpm@11.24.0"
+}
