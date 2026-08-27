@@ -1,1 +1,5 @@
-export { createSudachiTokenizer } from "./sudachi-tokenizer.js";
+export {
+	createSudachiTokenizer,
+	type CreateSudachiTokenizerOptions,
+	type SudachiSplitMode,
+} from "./sudachi-tokenizer.js";

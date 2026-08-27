@@ -1,6 +1,6 @@
 {
 	"name": "@wakamejs/sudachi",
-	"version": "0.0.1-alpha.1",
+	"version": "0.0.1-alpha.2",
 	"description": "Sudachi tokenizer for Wakame",
 	"license": "MIT",
 	"repository": {
@@ -9,6 +9,10 @@
 		"directory": "packages/sudachi"
 	},
 	"files": [
+		"LICENSE",
+		"LICENSE-APACHE-2.0",
+		"SUDACHI_DICT_LEGAL",
+		"THIRD_PARTY_NOTICES.md",
 		"dist",
 		"generated/native-binding.js",
 		"generated/native-binding.d.ts",
