@@ -1,0 +1,19 @@
+#:schema https://www.schemastore.org/cargo.json
+
+[package]
+name = "wakame-sudachi"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+memmap2 = "0.9"
+napi = "3"
+napi-derive = "3"
+sudachi = { git = "https://github.com/WorksApplications/sudachi.rs.git", tag = "v0.6.11" }
+
+[build-dependencies]
+napi-build = "2.4"
+
+[lib]
+crate-type = ["cdylib"]
+path = "src/lib.rs"

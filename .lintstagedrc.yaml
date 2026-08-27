@@ -1,3 +1,5 @@
 "*":
   - oxfmt --no-error-on-unmatched-pattern
   - oxlint --no-error-on-unmatched-pattern
+"*.rs":
+  - rustfmt

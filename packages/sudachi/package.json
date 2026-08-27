@@ -1,3 +1,44 @@
 {
-	"name": "@wakame/sudachi"
+	"name": "@wakame/sudachi",
+	"version": "0.0.1",
+	"description": "Sudachi tokenizer for Wakame",
+	"license": "MIT",
+	"files": [
+		"dist",
+		"generated",
+		"assets"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build:native": "napi build --platform --esm --output-dir generated --js native-binding.js --dts native-binding.d.ts --manifest-path rust/Cargo.toml",
+		"build:release": "napi build --platform --esm --release --output-dir generated --js native-binding.js --dts native-binding.d.ts --manifest-path rust/Cargo.toml && tsc -p tsconfig.json",
+		"build": "pnpm run build:native && tsc -p tsconfig.json",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
+	},
+	"dependencies": {
+		"@wakame/core": "workspace:*"
+	},
+	"devDependencies": {
+		"@napi-rs/cli": "^3.0.0",
+		"@types/node": "^24.0.0"
+	},
+	"napi": {
+		"binaryName": "wakame-sudachi"
+	},
+	"engines": {
+		"node": ">=20"
+	}
 }
