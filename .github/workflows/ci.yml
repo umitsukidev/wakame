@@ -19,4 +19,4 @@ jobs:
       - run: pnpm exec oxfmt --check .
       - run: pnpm exec oxlint .
       - run: pnpm -r run typecheck
-      - run: pnpm --filter @wakame/core run build
+      - run: pnpm --filter @wakamejs/core run build

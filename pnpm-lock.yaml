@@ -242,7 +242,7 @@ importers:
 
   packages/sudachi:
     dependencies:
-      '@wakame/core':
+      '@wakamejs/core':
         specifier: workspace:*
         version: link:../core
     devDependencies:

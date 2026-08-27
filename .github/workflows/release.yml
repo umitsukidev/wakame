@@ -59,8 +59,8 @@ jobs:
             echo "${id}_changed=${changed}" >> "$GITHUB_OUTPUT"
             echo "${id}_version=${current}" >> "$GITHUB_OUTPUT"
           }
-          detect_package core packages/core/package.json '@wakame/core@'
-          detect_package sudachi packages/sudachi/package.json '@wakame/sudachi@'
+          detect_package core packages/core/package.json '@wakamejs/core@'
+          detect_package sudachi packages/sudachi/package.json '@wakamejs/sudachi@'
 
   core:
     needs: detect
@@ -73,10 +73,10 @@ jobs:
       - uses: pnpm/setup@v2
         with:
           cache: true
-      - run: pnpm --filter @wakame/core run build
+      - run: pnpm --filter @wakamejs/core run build
       - working-directory: packages/core
         run: npm publish --provenance --access public
-      - run: gh release create "@wakame/core@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakame/core ${PACKAGE_VERSION}" --generate-notes
+      - run: gh release create "@wakamejs/core@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/core ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -194,13 +194,13 @@ jobs:
           root_tarball="$(find .release -maxdepth 1 -type f -name '*.tgz' -print -quit)"
           test -n "$root_tarball"
           tar -xOf "$root_tarball" package/package.json > .release/package.json
-          node -e 'const fs = require("node:fs"); const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (pkg.dependencies?.["@wakame/core"]?.startsWith("workspace:")) throw new Error("pnpm pack did not rewrite @wakame/core workspace dependency");' .release/package.json
+          node -e 'const fs = require("node:fs"); const pkg = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); if (pkg.dependencies?.["@wakamejs/core"]?.startsWith("workspace:")) throw new Error("pnpm pack did not rewrite @wakamejs/core workspace dependency");' .release/package.json
           test -n "$(tar -tzf "$root_tarball" | grep -E '^package/assets/system\.dic$')"
           if tar -tzf "$root_tarball" | grep -Eq '^package/generated/.*\.node$'; then
             echo "root package unexpectedly contains native binaries"
             exit 1
           fi
           npm publish "$root_tarball" --provenance --access public
-      - run: gh release create "@wakame/sudachi@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakame/sudachi ${PACKAGE_VERSION}" --generate-notes
+      - run: gh release create "@wakamejs/sudachi@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/sudachi ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,7 +1,7 @@
 import { access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
-import type { Dictionary, Tokenizer } from "@wakame/core";
+import type { Dictionary, Tokenizer } from "@wakamejs/core";
 
 interface NativeTokenizer {
 	tokenize(text: string): Promise<readonly string[]>;
@@ -31,7 +31,7 @@ async function loadNativeBinding(): Promise<NativeBindingModule> {
 		namespace = await import(nativeBindingUrl.href);
 	} catch (cause) {
 		throw new Error(
-			`Unable to load the Sudachi native binding at ${nativeBindingUrl.href}. Build @wakame/sudachi before using it.`,
+			`Unable to load the Sudachi native binding at ${nativeBindingUrl.href}. Build @wakamejs/sudachi before using it.`,
 			{ cause },
 		);
 	}
@@ -55,7 +55,7 @@ async function resolveSystemDictionaryPath(): Promise<string> {
 		await access(dictionaryUrl);
 	} catch (cause) {
 		throw new Error(
-			`@wakame/sudachi requires a Sudachi system dictionary at ${dictionaryPath}. The dictionary asset is not bundled yet.`,
+			`@wakamejs/sudachi requires a Sudachi system dictionary at ${dictionaryPath}. The dictionary asset is not bundled yet.`,
 			{ cause },
 		);
 	}
@@ -75,7 +75,7 @@ export async function createSudachiTokenizer(): Promise<Tokenizer<string, string
 		async tokenize(text: string, dictionary: Dictionary<string>): Promise<readonly string[]> {
 			if (dictionary.size > 0) {
 				throw new Error(
-					"@wakame/sudachi does not support custom dictionary entries yet; pass an empty dictionary.",
+					"@wakamejs/sudachi does not support custom dictionary entries yet; pass an empty dictionary.",
 				);
 			}
 
