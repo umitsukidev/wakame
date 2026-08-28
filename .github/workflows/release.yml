@@ -24,6 +24,8 @@ jobs:
       core_version: ${{ steps.detect.outputs.core_version }}
       sudachi_changed: ${{ steps.detect.outputs.sudachi_changed }}
       sudachi_version: ${{ steps.detect.outputs.sudachi_version }}
+      vite_changed: ${{ steps.detect.outputs.vite_changed }}
+      vite_version: ${{ steps.detect.outputs.vite_version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -48,8 +50,13 @@ jobs:
             if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
               version_changed=true
             elif [[ -n "$EVENT_BEFORE" && ! "$EVENT_BEFORE" =~ ^0+$ ]]; then
-              previous="$(git show "${EVENT_BEFORE}:${package}" | version_for /dev/stdin)"
-              [[ "$current" != "$previous" ]] && version_changed=true
+              if git cat-file -e "${EVENT_BEFORE}:${package}" 2>/dev/null; then
+                previous="$(git show "${EVENT_BEFORE}:${package}" | version_for /dev/stdin)"
+                [[ "$current" != "$previous" ]] && version_changed=true
+              else
+                # A package added in this commit has no previous version.
+                version_changed=true
+              fi
             fi
             if [[ "$version_changed" == true ]] && [[ -z "$(git tag --list "${tag_prefix}${current}")" ]]; then
               changed=true
@@ -61,6 +68,7 @@ jobs:
           }
           detect_package core packages/core/package.json '@wakamejs/core@'
           detect_package sudachi packages/sudachi/package.json '@wakamejs/sudachi@'
+          detect_package vite packages/vite/package.json '@wakamejs/vite@'
 
   core:
     needs: detect
@@ -210,5 +218,31 @@ jobs:
           fi
           pnpm publish "$root_tarball" --provenance --access public --no-git-checks
       - run: gh release create "@wakamejs/sudachi@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/sudachi ${PACKAGE_VERSION}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  vite:
+    needs: [detect, core]
+    if: >-
+      always() &&
+      needs.detect.outputs.vite_changed == 'true' &&
+      (needs.core.result == 'success' || needs.core.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ needs.detect.outputs.vite_version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v2
+        with:
+          cache: true
+      - name: Configure npm authentication for the initial publish
+        if: env.NPM_TOKEN != ''
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - run: pnpm --filter @wakamejs/core run build
+      - run: pnpm --filter @wakamejs/vite run build
+      - working-directory: packages/vite
+        run: pnpm publish --provenance --access public --no-git-checks
+      - run: gh release create "@wakamejs/vite@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/vite ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
