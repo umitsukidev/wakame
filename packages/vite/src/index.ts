@@ -192,6 +192,19 @@ function createWbr(): Element {
 	return defaultTreeAdapter.createElement("wbr", html.NS.HTML, []);
 }
 
+const wrapStyle = "word-break: keep-all; overflow-wrap: anywhere;";
+
+function applyWrapStyle(element: Element): void {
+	const style = element.attrs.find((attribute) => attribute.name === "style");
+	if (style) {
+		const existingStyle = style.value.trim();
+		const separator = existingStyle.endsWith(";") ? " " : "; ";
+		style.value = existingStyle ? `${existingStyle}${separator}${wrapStyle}` : wrapStyle;
+		return;
+	}
+	element.attrs.push({ name: "style", value: wrapStyle });
+}
+
 function insertChildren(parent: ParentNode, index: number, nodes: ChildNode[]): void {
 	const children = defaultTreeAdapter.getChildNodes(parent);
 	let insertionIndex = index;
@@ -293,7 +306,12 @@ function addBoundaries(paragraph: Paragraph, boundaries: readonly number[]): voi
 	}
 }
 
-async function processParagraph(paragraph: Paragraph, wakame: Wakame<string>): Promise<void> {
+async function processParagraph(
+	paragraph: Paragraph,
+	wakame: Wakame<string>,
+	addStyleAttribute: boolean,
+	styledElements: Set<Element>,
+): Promise<void> {
 	if (!paragraph.nodes.some((node) => node.canSplit)) return;
 	const text = paragraphText(paragraph);
 	if (/^\s*$/.test(text)) return;
@@ -304,11 +322,18 @@ async function processParagraph(paragraph: Paragraph, wakame: Wakame<string>): P
 			`Wakame tokenizer output does not reconstruct the paragraph text (expected ${JSON.stringify(text)}, received ${JSON.stringify(restored)})`,
 		);
 	}
-	addBoundaries(paragraph, tokenBoundaries(text, tokens));
+	const boundaries = tokenBoundaries(text, tokens);
+	if (boundaries.length === 0) return;
+	addBoundaries(paragraph, boundaries);
+	if (addStyleAttribute && !styledElements.has(paragraph.element)) {
+		applyWrapStyle(paragraph.element);
+		styledElements.add(paragraph.element);
+	}
 }
 
 export interface WakamePluginOptions {
 	wakame: Wakame<string>;
+	addStyleAttribute?: boolean;
 }
 
 export type CreateWakamePluginOptions = WakamePluginOptions;
@@ -316,16 +341,23 @@ export type CreateWakamePluginOptions = WakamePluginOptions;
 export type WakamePlugin = Plugin;
 
 /** Process one HTML document with the same semantic contexts as BudouX. */
-export async function transformHtml(html: string, wakame: Wakame<string>): Promise<string> {
+export async function transformHtml(
+	html: string,
+	wakame: Wakame<string>,
+	addStyleAttribute = true,
+): Promise<string> {
 	if (html === "") return html;
 	const document = parse(html);
 	const paragraphs: Paragraph[] = [];
+	const styledElements = new Set<Element>();
 	for (const child of document.childNodes) {
 		if (child.nodeName === "html") {
 			visitElement(child as Element, undefined, paragraphs);
 		}
 	}
-	for (const paragraph of paragraphs) await processParagraph(paragraph, wakame);
+	for (const paragraph of paragraphs) {
+		await processParagraph(paragraph, wakame, addStyleAttribute, styledElements);
+	}
 	return serialize(document);
 }
 
@@ -336,7 +368,7 @@ export function createWakamePlugin(options: WakamePluginOptions): WakamePlugin {
 		transformIndexHtml: {
 			order: "post",
 			async handler(html) {
-				return transformHtml(html, options.wakame);
+				return transformHtml(html, options.wakame, options.addStyleAttribute ?? true);
 			},
 		},
 	};
