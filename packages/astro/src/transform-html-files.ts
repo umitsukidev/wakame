@@ -22,7 +22,10 @@ export async function transformHtmlFiles(
 
 		const path = fileURLToPath(new URL(encodeURIComponent(entry.name), directory));
 		const source = await readFile(path, "utf8");
-		const transformed = await transformHtml(source, wakame, shouldApplyWrapStyle);
+		// Recompute breaks when Astro processes HTML produced by an earlier run.
+		const transformed = await transformHtml(source, wakame, shouldApplyWrapStyle, {
+			preserveExistingWbr: false,
+		});
 		if (transformed !== source) await writeFile(path, transformed, "utf8");
 	}
 }

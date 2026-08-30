@@ -194,10 +194,30 @@ function createWbr(): Element {
 
 const wrapStyle = "word-break: keep-all; overflow-wrap: anywhere;";
 
+function removeExistingWbrs(parent: ParentNode): void {
+	const wbrs: ChildNode[] = [];
+	for (const child of defaultTreeAdapter.getChildNodes(parent)) {
+		if (child.nodeName === "wbr") {
+			wbrs.push(child);
+			continue;
+		}
+		if (
+			child.nodeName === "#text" ||
+			child.nodeName === "#comment" ||
+			child.nodeName === "#documentType"
+		) {
+			continue;
+		}
+		removeExistingWbrs(child as ParentNode);
+	}
+	for (const wbr of wbrs) defaultTreeAdapter.detachNode(wbr);
+}
+
 function applyWrapStyle(element: Element): void {
 	const style = element.attrs.find((attribute) => attribute.name === "style");
 	if (style) {
 		const existingStyle = style.value.trim();
+		if (existingStyle.includes(wrapStyle)) return;
 		const separator = existingStyle.endsWith(";") ? " " : "; ";
 		style.value = existingStyle ? `${existingStyle}${separator}${wrapStyle}` : wrapStyle;
 		return;
@@ -341,14 +361,24 @@ export type CreateWakamePluginOptions = WakamePluginOptions;
 
 export type WakamePlugin = Plugin;
 
+export interface TransformHtmlOptions {
+	/**
+	 * Keep `<wbr>` elements already present in the input HTML. Set this to false
+	 * when the caller owns the generated HTML and wants to recompute all breaks.
+	 */
+	preserveExistingWbr?: boolean;
+}
+
 /** Process one HTML document with the same semantic contexts as BudouX. */
 export async function transformHtml(
 	html: string,
 	wakame: Wakame<string>,
 	shouldApplyWrapStyle = true,
+	options: TransformHtmlOptions = {},
 ): Promise<string> {
 	if (html === "") return html;
 	const document = parse(html);
+	if (options.preserveExistingWbr === false) removeExistingWbrs(document);
 	const paragraphs: Paragraph[] = [];
 	const styledElements = new Set<Element>();
 	for (const child of document.childNodes) {

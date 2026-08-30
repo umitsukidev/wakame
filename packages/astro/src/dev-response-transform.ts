@@ -36,6 +36,7 @@ function withoutBodyLengthHeaders(headers: OutgoingHttpHeaders): OutgoingHttpHea
 	const result = { ...headers };
 	removeHeader(result, "content-length");
 	removeHeader(result, "etag");
+	removeHeader(result, "transfer-encoding");
 	return result;
 }
 
@@ -174,11 +175,15 @@ export function installDevResponseTransform(
 
 		void (async () => {
 			const source = Buffer.concat(chunks).toString("utf8");
-			const transformed = await transformHtml(source, wakame, shouldApplyWrapStyle);
+			// Dev responses can be transformed again after an Astro reload.
+			const transformed = await transformHtml(source, wakame, shouldApplyWrapStyle, {
+				preserveExistingWbr: false,
+			});
 			const body = Buffer.from(transformed, "utf8");
 
 			response.removeHeader("content-length");
 			response.removeHeader("etag");
+			response.removeHeader("transfer-encoding");
 			response.setHeader("content-length", body.byteLength);
 			if (pendingWriteHead) {
 				const { statusCode, statusMessage, headers } = pendingWriteHead;

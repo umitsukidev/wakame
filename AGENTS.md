@@ -2,6 +2,10 @@
 
 - `pnpm` と `cargo` を使うコマンドは、install、build、check、test、fmtを含め、必ずサンドボックス外で実行してください。
 
+# TypeScript / JavaScript
+
+- 配列を反復するために `for (;;)` 形式のインデックスループを使わず、`for...of` などの反復構文を使ってください。
+
 # Rust
 
 - importは現在のコードと同様に、同じcrate rootからの項目を個別の`use`文へ分散させず、可能な範囲で1つのimport treeへまとめてください。
