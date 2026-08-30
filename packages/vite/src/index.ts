@@ -1,4 +1,4 @@
-import type { Wakame } from "@wakamejs/core";
+import { createWakame, type DictionaryInput, type Tokenizer, type Wakame } from "@wakamejs/core";
 import { defaultTreeAdapter, html, parse, serialize, type DefaultTreeAdapterMap } from "parse5";
 import type { Plugin } from "vite";
 
@@ -332,7 +332,8 @@ async function processParagraph(
 }
 
 export interface WakamePluginOptions {
-	wakame: Wakame<string>;
+	tokenizer: Tokenizer<string>;
+	dictionary?: DictionaryInput;
 	applyWrapStyle?: boolean;
 }
 
@@ -363,12 +364,17 @@ export async function transformHtml(
 
 /** Create a Vite post transformIndexHtml plugin for Wakame. */
 function wakamePlugin(options: WakamePluginOptions): WakamePlugin {
+	const wakame = createWakame({
+		tokenizer: options.tokenizer,
+		dictionary: options.dictionary ?? [],
+	});
+
 	return {
 		name: "wakame",
 		transformIndexHtml: {
 			order: "post",
 			async handler(html) {
-				return transformHtml(html, options.wakame, options.applyWrapStyle ?? true);
+				return transformHtml(html, wakame, options.applyWrapStyle ?? true);
 			},
 		},
 	};
