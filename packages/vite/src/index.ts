@@ -309,7 +309,7 @@ function addBoundaries(paragraph: Paragraph, boundaries: readonly number[]): voi
 async function processParagraph(
 	paragraph: Paragraph,
 	wakame: Wakame<string>,
-	addStyleAttribute: boolean,
+	shouldApplyWrapStyle: boolean,
 	styledElements: Set<Element>,
 ): Promise<void> {
 	if (!paragraph.nodes.some((node) => node.canSplit)) return;
@@ -325,7 +325,7 @@ async function processParagraph(
 	const boundaries = tokenBoundaries(text, tokens);
 	if (boundaries.length === 0) return;
 	addBoundaries(paragraph, boundaries);
-	if (addStyleAttribute && !styledElements.has(paragraph.element)) {
+	if (shouldApplyWrapStyle && !styledElements.has(paragraph.element)) {
 		applyWrapStyle(paragraph.element);
 		styledElements.add(paragraph.element);
 	}
@@ -333,7 +333,7 @@ async function processParagraph(
 
 export interface WakamePluginOptions {
 	wakame: Wakame<string>;
-	addStyleAttribute?: boolean;
+	applyWrapStyle?: boolean;
 }
 
 export type CreateWakamePluginOptions = WakamePluginOptions;
@@ -344,7 +344,7 @@ export type WakamePlugin = Plugin;
 export async function transformHtml(
 	html: string,
 	wakame: Wakame<string>,
-	addStyleAttribute = true,
+	shouldApplyWrapStyle = true,
 ): Promise<string> {
 	if (html === "") return html;
 	const document = parse(html);
@@ -356,20 +356,22 @@ export async function transformHtml(
 		}
 	}
 	for (const paragraph of paragraphs) {
-		await processParagraph(paragraph, wakame, addStyleAttribute, styledElements);
+		await processParagraph(paragraph, wakame, shouldApplyWrapStyle, styledElements);
 	}
 	return serialize(document);
 }
 
 /** Create a Vite post transformIndexHtml plugin for Wakame. */
-export function createWakamePlugin(options: WakamePluginOptions): WakamePlugin {
+function wakamePlugin(options: WakamePluginOptions): WakamePlugin {
 	return {
 		name: "wakame",
 		transformIndexHtml: {
 			order: "post",
 			async handler(html) {
-				return transformHtml(html, options.wakame, options.addStyleAttribute ?? true);
+				return transformHtml(html, options.wakame, options.applyWrapStyle ?? true);
 			},
 		},
 	};
 }
+
+export default wakamePlugin;
