@@ -26,6 +26,8 @@ jobs:
       sudachi_version: ${{ steps.detect.outputs.sudachi_version }}
       vite_changed: ${{ steps.detect.outputs.vite_changed }}
       vite_version: ${{ steps.detect.outputs.vite_version }}
+      astro_changed: ${{ steps.detect.outputs.astro_changed }}
+      astro_version: ${{ steps.detect.outputs.astro_version }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -69,6 +71,7 @@ jobs:
           detect_package core packages/core/package.json '@wakamejs/core@'
           detect_package sudachi packages/sudachi/package.json '@wakamejs/sudachi@'
           detect_package vite packages/vite/package.json '@wakamejs/vite@'
+          detect_package astro packages/astro/package.json '@wakamejs/astro@'
 
   core:
     needs: detect
@@ -244,5 +247,33 @@ jobs:
       - working-directory: packages/vite
         run: pnpm publish --provenance --access public --no-git-checks
       - run: gh release create "@wakamejs/vite@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/vite ${PACKAGE_VERSION}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  astro:
+    needs: [detect, core, vite]
+    if: >-
+      always() &&
+      needs.detect.outputs.astro_changed == 'true' &&
+      (needs.core.result == 'success' || needs.core.result == 'skipped') &&
+      (needs.vite.result == 'success' || needs.vite.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ needs.detect.outputs.astro_version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/setup@v2
+        with:
+          cache: true
+      - name: Configure npm authentication for the initial publish
+        if: env.NPM_TOKEN != ''
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - run: pnpm --filter @wakamejs/core run build
+      - run: pnpm --filter @wakamejs/vite run build
+      - run: pnpm --filter @wakamejs/astro run build
+      - working-directory: packages/astro
+        run: pnpm publish --provenance --access public --no-git-checks
+      - run: gh release create "@wakamejs/astro@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/astro ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
