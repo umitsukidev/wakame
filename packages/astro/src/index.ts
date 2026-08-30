@@ -3,6 +3,7 @@ import { createWakame } from "@wakamejs/core";
 import {
 	transformHtml,
 	type CreateWakamePluginOptions,
+	type TransformHtmlOptions,
 	type WakamePlugin,
 	type WakamePluginOptions,
 } from "@wakamejs/vite";
@@ -10,7 +11,7 @@ import { installDevResponseTransform } from "./dev-response-transform.js";
 import { transformHtmlFiles } from "./transform-html-files.js";
 
 export { transformHtml };
-export type { CreateWakamePluginOptions, WakamePlugin, WakamePluginOptions };
+export type { CreateWakamePluginOptions, TransformHtmlOptions, WakamePlugin, WakamePluginOptions };
 
 /** The Astro integration created by {@link default}. */
 export type WakameIntegration = AstroIntegration;
