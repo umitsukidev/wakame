@@ -17,6 +17,7 @@ jobs:
         with:
           cache: true
       - run: pnpm --filter @wakamejs/core run build
+      - run: pnpm --filter @wakamejs/vite run build
       - run: pnpm exec oxfmt --check .
       - run: pnpm exec oxlint .
       - run: pnpm -r run typecheck
