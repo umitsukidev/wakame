@@ -4,7 +4,7 @@ import { fileURLToPath } from "node:url";
 import type { Dictionary, Tokenizer } from "@wakamejs/core";
 
 export type SudachiSplitMode = "A" | "B" | "C";
-export type SudachiGrouping = "particle";
+export type SudachiGrouping = "particle" | "bunsetsu";
 
 export interface CreateSudachiTokenizerOptions {
 	splitMode?: SudachiSplitMode;
@@ -89,8 +89,16 @@ export async function createSudachiTokenizer(
 	}
 	const selectedSplitMode: SudachiSplitMode = splitMode ?? "C";
 	const grouping = options?.grouping;
-	if (grouping !== undefined && grouping !== "particle" && (grouping as unknown) !== "助詞") {
-		throw new Error(`Invalid Sudachi grouping "${String(grouping)}"; expected "particle".`);
+	if (
+		grouping !== undefined &&
+		grouping !== "particle" &&
+		grouping !== "bunsetsu" &&
+		(grouping as unknown) !== "助詞" &&
+		(grouping as unknown) !== "文節"
+	) {
+		throw new Error(
+			`Invalid Sudachi grouping "${String(grouping)}"; expected one of "particle" or "bunsetsu".`,
+		);
 	}
 	const kinsoku = options?.kinsoku ?? false;
 	const [systemDictionaryPath, nativeBinding] = await Promise.all([
