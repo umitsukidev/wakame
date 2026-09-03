@@ -127,6 +127,10 @@ function newParagraph(element: Element): Paragraph {
 	return { element, nodes: [], forcedOpportunities: new Set() };
 }
 
+function isHtmlElement(element: Element): boolean {
+	return defaultTreeAdapter.getNamespaceURI(element) === html.NS.HTML;
+}
+
 function textOf(node: TextNode): string {
 	return node.value;
 }
@@ -155,6 +159,7 @@ function visitElement(
 	parent: FlowContext | undefined,
 	paragraphs: Paragraph[],
 ): void {
+	if (!isHtmlElement(element)) return;
 	const action = actionForElement(element);
 	if (action === ElementAction.Skip) return;
 	if (action === ElementAction.Break) {
@@ -198,7 +203,7 @@ function removeExistingWbrs(parent: ParentNode): void {
 	const wbrs: ChildNode[] = [];
 	for (const child of defaultTreeAdapter.getChildNodes(parent)) {
 		if (child.nodeName === "wbr") {
-			wbrs.push(child);
+			if (isHtmlElement(child as Element)) wbrs.push(child);
 			continue;
 		}
 		if (
@@ -208,6 +213,7 @@ function removeExistingWbrs(parent: ParentNode): void {
 		) {
 			continue;
 		}
+		if (!isHtmlElement(child as Element)) continue;
 		removeExistingWbrs(child as ParentNode);
 	}
 	for (const wbr of wbrs) defaultTreeAdapter.detachNode(wbr);
