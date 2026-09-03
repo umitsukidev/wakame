@@ -4,11 +4,12 @@ import { fileURLToPath } from "node:url";
 import type { Dictionary, Tokenizer } from "@wakamejs/core";
 
 export type SudachiSplitMode = "A" | "B" | "C";
-export type SudachiGrouping = "助詞";
+export type SudachiGrouping = "particle" | "bunsetsu";
 
 export interface CreateSudachiTokenizerOptions {
 	splitMode?: SudachiSplitMode;
 	grouping?: SudachiGrouping;
+	kinsoku?: boolean;
 }
 
 interface NativeTokenizer {
@@ -19,7 +20,8 @@ interface NativeBindingModule {
 	SudachiTokenizer: new (
 		systemDictionaryPath: string,
 		splitMode: SudachiSplitMode,
-		grouping?: SudachiGrouping,
+		grouping?: string,
+		kinsoku?: boolean,
 	) => NativeTokenizer;
 }
 
@@ -87,17 +89,28 @@ export async function createSudachiTokenizer(
 	}
 	const selectedSplitMode: SudachiSplitMode = splitMode ?? "C";
 	const grouping = options?.grouping;
-	if (grouping !== undefined && grouping !== "助詞") {
-		throw new Error(`Invalid Sudachi grouping "${String(grouping)}"; expected "助詞".`);
+	if (
+		grouping !== undefined &&
+		grouping !== "particle" &&
+		grouping !== "bunsetsu" &&
+		(grouping as unknown) !== "助詞" &&
+		(grouping as unknown) !== "文節"
+	) {
+		throw new Error(
+			`Invalid Sudachi grouping "${String(grouping)}"; expected one of "particle" or "bunsetsu".`,
+		);
 	}
+	const kinsoku = options?.kinsoku ?? false;
 	const [systemDictionaryPath, nativeBinding] = await Promise.all([
 		resolveSystemDictionaryPath(),
 		loadNativeBinding(),
 	]);
-	const tokenizer =
-		grouping === undefined
-			? new nativeBinding.SudachiTokenizer(systemDictionaryPath, selectedSplitMode)
-			: new nativeBinding.SudachiTokenizer(systemDictionaryPath, selectedSplitMode, grouping);
+	const tokenizer = new nativeBinding.SudachiTokenizer(
+		systemDictionaryPath,
+		selectedSplitMode,
+		grouping,
+		kinsoku,
+	);
 
 	return {
 		async tokenize(text: string, dictionary: Dictionary<string>): Promise<readonly string[]> {
