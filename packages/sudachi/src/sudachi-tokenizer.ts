@@ -4,9 +4,11 @@ import { fileURLToPath } from "node:url";
 import type { Dictionary, Tokenizer } from "@wakamejs/core";
 
 export type SudachiSplitMode = "A" | "B" | "C";
+export type SudachiGrouping = "助詞";
 
 export interface CreateSudachiTokenizerOptions {
 	splitMode?: SudachiSplitMode;
+	grouping?: SudachiGrouping;
 }
 
 interface NativeTokenizer {
@@ -17,6 +19,7 @@ interface NativeBindingModule {
 	SudachiTokenizer: new (
 		systemDictionaryPath: string,
 		splitMode: SudachiSplitMode,
+		grouping?: SudachiGrouping,
 	) => NativeTokenizer;
 }
 
@@ -83,11 +86,18 @@ export async function createSudachiTokenizer(
 		);
 	}
 	const selectedSplitMode: SudachiSplitMode = splitMode ?? "C";
+	const grouping = options?.grouping;
+	if (grouping !== undefined && grouping !== "助詞") {
+		throw new Error(`Invalid Sudachi grouping "${String(grouping)}"; expected "助詞".`);
+	}
 	const [systemDictionaryPath, nativeBinding] = await Promise.all([
 		resolveSystemDictionaryPath(),
 		loadNativeBinding(),
 	]);
-	const tokenizer = new nativeBinding.SudachiTokenizer(systemDictionaryPath, selectedSplitMode);
+	const tokenizer =
+		grouping === undefined
+			? new nativeBinding.SudachiTokenizer(systemDictionaryPath, selectedSplitMode)
+			: new nativeBinding.SudachiTokenizer(systemDictionaryPath, selectedSplitMode, grouping);
 
 	return {
 		async tokenize(text: string, dictionary: Dictionary<string>): Promise<readonly string[]> {
