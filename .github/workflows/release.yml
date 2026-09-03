@@ -191,7 +191,7 @@ jobs:
           mkdir -p resources assets
           curl --fail --location --retry 3 \
             https://raw.githubusercontent.com/WorksApplications/sudachi.rs/v0.6.11/fetch_dictionary.sh \
-            | sh -s -- "$DICTIONARY_VERSION" core
+            | sh -s -- "$DICTIONARY_VERSION" full
           mv resources/system.dic assets/system.dic
           test -s assets/system.dic
           pnpm exec napi create-npm-dirs --npm-dir npm

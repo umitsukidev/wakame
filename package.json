@@ -15,16 +15,16 @@
 		"@changesets/config": "^4.0.0",
 		"@types/node": "^24.13.3",
 		"husky": "^9.1.7",
-		"lint-staged": "^17.3.0",
+		"lint-staged": "^17.4.1",
 		"oxfmt": "^0.65.0",
-		"oxlint": "^1.80.0",
+		"oxlint": "^1.81.0",
 		"oxlint-tsgolint": "^7.0.2001",
 		"typescript": "^7.0.2"
 	},
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
-			"version": "11.24.0",
+			"version": "12.3.0",
 			"onFail": "download"
 		},
 		"runtime": {
@@ -33,5 +33,5 @@
 			"onFail": "download"
 		}
 	},
-	"packageManager": "pnpm@11.24.0"
+	"packageManager": "pnpm@12.3.0"
 }
