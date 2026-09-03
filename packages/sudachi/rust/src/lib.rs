@@ -24,7 +24,10 @@ enum GroupingMode {
 enum MorphemePart {
     Other,
     Particle,
-    Symbol,
+    OpenBracket,
+    CloseBracket,
+    Punctuation,
+    TrailingSymbol,
 }
 
 fn parse_grouping(grouping: Option<String>) -> Result<GroupingMode> {
@@ -37,41 +40,198 @@ fn parse_grouping(grouping: Option<String>) -> Result<GroupingMode> {
     }
 }
 
-fn classify_part_of_speech(part_of_speech: &[String]) -> MorphemePart {
-    match part_of_speech.first().map(String::as_str) {
-        Some("助詞") => MorphemePart::Particle,
-        Some("記号" | "補助記号") => MorphemePart::Symbol,
-        _ => MorphemePart::Other,
+fn is_open_bracket_char(c: char) -> bool {
+    matches!(
+        c,
+        '(' | '['
+            | '{'
+            | '<'
+            | '（'
+            | '［'
+            | '｛'
+            | '〈'
+            | '《'
+            | '「'
+            | '『'
+            | '【'
+            | '〔'
+            | '〖'
+            | '〘'
+            | '〚'
+            | '‘'
+            | '“'
+            | '«'
+            | '‹'
+    )
+}
+
+fn is_close_bracket_char(c: char) -> bool {
+    matches!(
+        c,
+        ')' | ']'
+            | '}'
+            | '>'
+            | '）'
+            | '］'
+            | '｝'
+            | '〉'
+            | '》'
+            | '」'
+            | '』'
+            | '】'
+            | '〕'
+            | '〗'
+            | '〙'
+            | '〚'
+            | '’'
+            | '”'
+            | '»'
+            | '›'
+    )
+}
+
+fn is_punctuation_char(c: char) -> bool {
+    matches!(
+        c,
+        '、' | '。'
+            | ','
+            | '.'
+            | '，'
+            | '．'
+            | '！'
+            | '？'
+            | '!'
+            | '?'
+            | '…'
+            | '‥'
+            | '：'
+            | '；'
+            | ':'
+            | ';'
+    )
+}
+
+fn is_trailing_symbol_char(c: char) -> bool {
+    is_close_bracket_char(c)
+        || is_punctuation_char(c)
+        || matches!(
+            c,
+            'ー' | '―' | '‐' | '－' | '〜' | '～' | '・' | '々' | 'ゝ' | 'ヽ' | 'ゞ' | 'ヾ'
+        )
+}
+
+fn classify_morpheme(part_of_speech: &[String], surface: &str) -> MorphemePart {
+    let pos0 = part_of_speech.first().map(String::as_str);
+    let pos1 = part_of_speech.get(1).map(String::as_str);
+
+    if pos0 == Some("助詞") {
+        return MorphemePart::Particle;
     }
+
+    if pos0 == Some("補助記号") {
+        match pos1 {
+            Some("括弧開") => return MorphemePart::OpenBracket,
+            Some("括弧閉") => return MorphemePart::CloseBracket,
+            Some("句点" | "読点") => return MorphemePart::Punctuation,
+            _ => {}
+        }
+    }
+
+    if !surface.is_empty() {
+        if surface.chars().all(is_open_bracket_char) {
+            return MorphemePart::OpenBracket;
+        }
+        if surface.chars().all(is_close_bracket_char) {
+            return MorphemePart::CloseBracket;
+        }
+        if surface.chars().all(is_punctuation_char) {
+            return MorphemePart::Punctuation;
+        }
+        if surface.chars().all(is_trailing_symbol_char) {
+            return MorphemePart::TrailingSymbol;
+        }
+    }
+
+    MorphemePart::Other
 }
 
 /// Apply the provisional POS-based grouping used for line-wrap units.
-/// This deliberately does not attempt syntactic or dependency analysis.
+/// Follows Japanese line-breaking rules (JIS X 4051):
+/// - Opening brackets stick to following morphemes (never split after opening brackets)
+/// - Closing brackets, punctuation, and trailing symbols stick to preceding morphemes (never split before them)
+/// - Particles attach to preceding words, but defer splitting if followed by closing brackets, punctuation, or further particles
 fn group_morphemes(morphemes: impl IntoIterator<Item = (String, MorphemePart)>) -> Vec<String> {
     let mut groups = Vec::new();
     let mut current = String::new();
+    let mut last_was_open_bracket = false;
     let mut morphemes = morphemes.into_iter().peekable();
 
     while let Some((surface, part)) = morphemes.next() {
         match part {
-            MorphemePart::Other => current.push_str(&surface),
+            MorphemePart::OpenBracket => {
+                if !current.is_empty() && !last_was_open_bracket {
+                    groups.push(std::mem::take(&mut current));
+                }
+                current.push_str(&surface);
+                last_was_open_bracket = true;
+            }
+            MorphemePart::CloseBracket => {
+                current.push_str(&surface);
+                last_was_open_bracket = false;
+                let next_joins_to_this = matches!(
+                    morphemes.peek(),
+                    Some((
+                        _,
+                        MorphemePart::CloseBracket
+                            | MorphemePart::Punctuation
+                            | MorphemePart::TrailingSymbol
+                            | MorphemePart::Particle
+                    ))
+                );
+                if !next_joins_to_this {
+                    groups.push(std::mem::take(&mut current));
+                }
+            }
+            MorphemePart::Punctuation => {
+                current.push_str(&surface);
+                last_was_open_bracket = false;
+                let next_joins_to_this = matches!(
+                    morphemes.peek(),
+                    Some((
+                        _,
+                        MorphemePart::CloseBracket
+                            | MorphemePart::Punctuation
+                            | MorphemePart::TrailingSymbol
+                    ))
+                );
+                if !next_joins_to_this {
+                    groups.push(std::mem::take(&mut current));
+                }
+            }
+            MorphemePart::TrailingSymbol => {
+                current.push_str(&surface);
+                last_was_open_bracket = false;
+            }
             MorphemePart::Particle => {
                 current.push_str(&surface);
+                last_was_open_bracket = false;
                 let next_is_particle = matches!(
                     morphemes.peek(),
-                    Some((_, next)) if *next == MorphemePart::Particle
+                    Some((
+                        _,
+                        MorphemePart::Particle
+                            | MorphemePart::CloseBracket
+                            | MorphemePart::Punctuation
+                            | MorphemePart::TrailingSymbol
+                    ))
                 );
                 if !next_is_particle {
                     groups.push(std::mem::take(&mut current));
                 }
             }
-            MorphemePart::Symbol => {
-                if !current.is_empty() {
-                    groups.push(std::mem::take(&mut current));
-                }
-                if !surface.is_empty() {
-                    groups.push(surface);
-                }
+            MorphemePart::Other => {
+                current.push_str(&surface);
+                last_was_open_bracket = false;
             }
         }
     }
@@ -107,10 +267,9 @@ impl Task for TokenizeTask {
                 .map(|morpheme| morpheme.surface().to_string())
                 .collect()),
             GroupingMode::ByParticle => Ok(group_morphemes(morphemes.iter().map(|morpheme| {
-                (
-                    morpheme.surface().to_string(),
-                    classify_part_of_speech(morpheme.part_of_speech()),
-                )
+                let surface = morpheme.surface();
+                let part = classify_morpheme(morpheme.part_of_speech(), &surface);
+                (surface.to_string(), part)
             }))),
         }
     }
@@ -184,9 +343,7 @@ impl SudachiTokenizer {
 
 #[cfg(test)]
 mod tests {
-    use super::{
-        classify_part_of_speech, group_morphemes, parse_grouping, GroupingMode, MorphemePart,
-    };
+    use super::{classify_morpheme, group_morphemes, parse_grouping, GroupingMode, MorphemePart};
 
     fn morpheme(surface: &str, part: MorphemePart) -> (String, MorphemePart) {
         (surface.to_owned(), part)
@@ -199,11 +356,11 @@ mod tests {
             morpheme("は", MorphemePart::Particle),
             morpheme("猫", MorphemePart::Other),
             morpheme("です", MorphemePart::Other),
-            morpheme("。", MorphemePart::Symbol),
+            morpheme("。", MorphemePart::Punctuation),
         ];
         let groups = group_morphemes(input);
 
-        assert_eq!(groups, ["私は", "猫です", "。"]);
+        assert_eq!(groups, ["私は", "猫です。"]);
         assert_eq!(groups.join(""), "私は猫です。");
     }
 
@@ -220,43 +377,136 @@ mod tests {
     }
 
     #[test]
-    fn keeps_punctuation_and_symbols_as_their_own_groups() {
-        let groups = group_morphemes([
-            morpheme("（", MorphemePart::Symbol),
+    fn sticks_opening_and_closing_brackets_and_punctuation() {
+        // 「私は、猫です。」 -> ["「私は、", "猫です。」"]
+        let input1 = [
+            morpheme("「", MorphemePart::OpenBracket),
+            morpheme("私", MorphemePart::Other),
+            morpheme("は", MorphemePart::Particle),
+            morpheme("、", MorphemePart::Punctuation),
             morpheme("猫", MorphemePart::Other),
-            morpheme("）", MorphemePart::Symbol),
-            morpheme("。", MorphemePart::Symbol),
-        ]);
+            morpheme("です", MorphemePart::Other),
+            morpheme("。", MorphemePart::Punctuation),
+            morpheme("」", MorphemePart::CloseBracket),
+        ];
+        let groups1 = group_morphemes(input1);
+        assert_eq!(groups1, ["「私は、", "猫です。」"]);
+        assert_eq!(groups1.join(""), "「私は、猫です。」");
 
-        assert_eq!(groups, ["（", "猫", "）", "。"]);
-        assert_eq!(groups.join(""), "（猫）。");
+        // 彼（猫）が好き。 -> ["彼", "（猫）が", "好き。"]
+        let input2 = [
+            morpheme("彼", MorphemePart::Other),
+            morpheme("（", MorphemePart::OpenBracket),
+            morpheme("猫", MorphemePart::Other),
+            morpheme("）", MorphemePart::CloseBracket),
+            morpheme("が", MorphemePart::Particle),
+            morpheme("好き", MorphemePart::Other),
+            morpheme("。", MorphemePart::Punctuation),
+        ];
+        let groups2 = group_morphemes(input2);
+        assert_eq!(groups2, ["彼", "（猫）が", "好き。"]);
+        assert_eq!(groups2.join(""), "彼（猫）が好き。");
+
+        // （これからは）始まる。 -> ["（これからは）", "始まる。"]
+        let input3 = [
+            morpheme("（", MorphemePart::OpenBracket),
+            morpheme("これ", MorphemePart::Other),
+            morpheme("から", MorphemePart::Particle),
+            morpheme("は", MorphemePart::Particle),
+            morpheme("）", MorphemePart::CloseBracket),
+            morpheme("始まる", MorphemePart::Other),
+            morpheme("。", MorphemePart::Punctuation),
+        ];
+        let groups3 = group_morphemes(input3);
+        assert_eq!(groups3, ["（これからは）", "始まる。"]);
+        assert_eq!(groups3.join(""), "（これからは）始まる。");
+
+        // 私は「猫」が好き。 -> ["私は", "「猫」が", "好き。"]
+        let input4 = [
+            morpheme("私", MorphemePart::Other),
+            morpheme("は", MorphemePart::Particle),
+            morpheme("「", MorphemePart::OpenBracket),
+            morpheme("猫", MorphemePart::Other),
+            morpheme("」", MorphemePart::CloseBracket),
+            morpheme("が", MorphemePart::Particle),
+            morpheme("好き", MorphemePart::Other),
+            morpheme("。", MorphemePart::Punctuation),
+        ];
+        let groups4 = group_morphemes(input4);
+        assert_eq!(groups4, ["私は", "「猫」が", "好き。"]);
+        assert_eq!(groups4.join(""), "私は「猫」が好き。");
+
+        // （「猫」） -> ["（「猫」）"]
+        let input5 = [
+            morpheme("（", MorphemePart::OpenBracket),
+            morpheme("「", MorphemePart::OpenBracket),
+            morpheme("猫", MorphemePart::Other),
+            morpheme("」", MorphemePart::CloseBracket),
+            morpheme("）", MorphemePart::CloseBracket),
+        ];
+        let groups5 = group_morphemes(input5);
+        assert_eq!(groups5, ["（「猫」）"]);
+        assert_eq!(groups5.join(""), "（「猫」）");
+    }
+
+    #[test]
+    fn handles_trailing_symbols_and_exclamations() {
+        // スーパー・マーケットに行こう〜！ -> ["スーパー・マーケットに", "行こう〜！"]
+        let input = [
+            morpheme("スーパー", MorphemePart::Other),
+            morpheme("・", MorphemePart::TrailingSymbol),
+            morpheme("マーケット", MorphemePart::Other),
+            morpheme("に", MorphemePart::Particle),
+            morpheme("行こ", MorphemePart::Other),
+            morpheme("う", MorphemePart::Other),
+            morpheme("〜", MorphemePart::TrailingSymbol),
+            morpheme("！", MorphemePart::Punctuation),
+        ];
+        let groups = group_morphemes(input);
+        assert_eq!(groups, ["スーパー・マーケットに", "行こう〜！"]);
+        assert_eq!(groups.join(""), "スーパー・マーケットに行こう〜！");
     }
 
     #[test]
     fn handles_empty_input() {
         let groups = group_morphemes(std::iter::empty());
-
         assert!(groups.is_empty());
     }
 
     #[test]
-    fn recognizes_particle_and_symbol_pos() {
+    fn recognizes_part_of_speech_and_symbols() {
         assert_eq!(
-            classify_part_of_speech(&["助詞".to_owned()]),
+            classify_morpheme(&["助詞".to_owned()], "は"),
             MorphemePart::Particle
         );
         assert_eq!(
-            classify_part_of_speech(&["記号".to_owned()]),
-            MorphemePart::Symbol
+            classify_morpheme(&["補助記号".to_owned(), "括弧開".to_owned()], "「"),
+            MorphemePart::OpenBracket
         );
         assert_eq!(
-            classify_part_of_speech(&["補助記号".to_owned()]),
-            MorphemePart::Symbol
+            classify_morpheme(&["補助記号".to_owned(), "括弧閉".to_owned()], "」"),
+            MorphemePart::CloseBracket
         );
         assert_eq!(
-            classify_part_of_speech(&["名詞".to_owned()]),
+            classify_morpheme(&["補助記号".to_owned(), "句点".to_owned()], "。"),
+            MorphemePart::Punctuation
+        );
+        assert_eq!(
+            classify_morpheme(&["補助記号".to_owned(), "読点".to_owned()], "、"),
+            MorphemePart::Punctuation
+        );
+        assert_eq!(
+            classify_morpheme(&["記号".to_owned(), "一般".to_owned()], "〜"),
+            MorphemePart::TrailingSymbol
+        );
+        assert_eq!(
+            classify_morpheme(&["名詞".to_owned()], "猫"),
             MorphemePart::Other
         );
+        // Fallback checks with arbitrary/empty POS
+        assert_eq!(classify_morpheme(&[], "（"), MorphemePart::OpenBracket);
+        assert_eq!(classify_morpheme(&[], "）"), MorphemePart::CloseBracket);
+        assert_eq!(classify_morpheme(&[], "！"), MorphemePart::Punctuation);
     }
 
     #[test]
