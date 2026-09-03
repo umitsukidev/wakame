@@ -11,6 +11,8 @@ pub enum MorphemePart {
     Dependent,
     Prefix,
     Particle,
+    Numeric,
+    Counter,
     OpenBracket,
     CloseBracket,
     Punctuation,
@@ -108,7 +110,123 @@ pub fn is_trailing_symbol_char(c: char) -> bool {
         )
 }
 
+fn is_numeric_morpheme(pos: &[String], surface: &str) -> bool {
+    let pos0 = pos.first().map(String::as_str);
+    let pos1 = pos.get(1).map(String::as_str);
+
+    if pos0 == Some("名詞") && pos1 == Some("数詞") {
+        return true;
+    }
+
+    if !surface.is_empty()
+        && surface.chars().all(|c| {
+            c.is_ascii_digit()
+                || matches!(
+                    c,
+                    '０'
+                        ..='９'
+                            | '〇'
+                            | '一'
+                            | '二'
+                            | '三'
+                            | '四'
+                            | '五'
+                            | '六'
+                            | '七'
+                            | '八'
+                            | '九'
+                            | '十'
+                            | '百'
+                            | '千'
+                            | '万'
+                            | '億'
+                            | '兆'
+                )
+        })
+    {
+        return true;
+    }
+
+    false
+}
+
+fn is_counter_morpheme(pos: &[String], surface: &str) -> bool {
+    let pos0 = pos.first().map(String::as_str);
+    let pos2 = pos.get(2).map(String::as_str);
+
+    if pos0 == Some("接尾辞") && pos2 == Some("助数詞") {
+        return true;
+    }
+
+    if pos0 == Some("名詞") && pos2 == Some("助数詞可能") {
+        return true;
+    }
+
+    matches!(
+        surface,
+        "円" | "ドル"
+            | "セント"
+            | "ユーロ"
+            | "年"
+            | "月"
+            | "日"
+            | "時"
+            | "分"
+            | "秒"
+            | "人"
+            | "名"
+            | "個"
+            | "本"
+            | "枚"
+            | "匹"
+            | "頭"
+            | "冊"
+            | "台"
+            | "羽"
+            | "足"
+            | "階"
+            | "点"
+            | "件"
+            | "通"
+            | "回"
+            | "度"
+            | "倍"
+            | "割"
+            | "組"
+            | "杯"
+            | "包"
+            | "丁"
+            | "筋"
+            | "束"
+            | "把"
+            | "袋"
+            | "箱"
+            | "缶"
+            | "瓶"
+            | "キロ"
+            | "メートル"
+            | "センチ"
+            | "ミリ"
+            | "グラム"
+            | "トン"
+            | "リットル"
+            | "％"
+            | "%"
+            | "番"
+            | "号"
+            | "目"
+    )
+}
+
 pub fn classify_morpheme(part_of_speech: &[String], surface: &str) -> MorphemePart {
+    if is_numeric_morpheme(part_of_speech, surface) {
+        return MorphemePart::Numeric;
+    }
+
+    if is_counter_morpheme(part_of_speech, surface) {
+        return MorphemePart::Counter;
+    }
+
     let pos0 = part_of_speech.first().map(String::as_str);
     let pos1 = part_of_speech.get(1).map(String::as_str);
 
@@ -169,6 +287,7 @@ pub fn group_morphemes(
     let mut current = String::new();
     let mut last_was_open_bracket = false;
     let mut last_was_prefix = false;
+    let mut last_was_numeric = false;
     let mut morphemes = morphemes.into_iter().peekable();
 
     while let Some((surface, part)) = morphemes.next() {
@@ -185,6 +304,7 @@ pub fn group_morphemes(
                         groups.push(surface);
                     }
                     last_was_prefix = false;
+                    last_was_numeric = false;
                 }
                 MorphemePart::Prefix => {
                     if !current.is_empty() && grouping != GroupingMode::None {
@@ -192,6 +312,37 @@ pub fn group_morphemes(
                     }
                     current.push_str(&surface);
                     last_was_prefix = true;
+                    last_was_numeric = false;
+                    if grouping == GroupingMode::None {
+                        groups.push(std::mem::take(&mut current));
+                    }
+                }
+                MorphemePart::Numeric => {
+                    if grouping == GroupingMode::Bunsetsu
+                        && !current.is_empty()
+                        && !last_was_prefix
+                        && !last_was_numeric
+                    {
+                        groups.push(std::mem::take(&mut current));
+                    }
+                    current.push_str(&surface);
+                    last_was_prefix = false;
+                    last_was_numeric = true;
+                    if grouping == GroupingMode::None {
+                        groups.push(std::mem::take(&mut current));
+                    }
+                }
+                MorphemePart::Counter => {
+                    if grouping == GroupingMode::Bunsetsu
+                        && !current.is_empty()
+                        && !last_was_prefix
+                        && !last_was_numeric
+                    {
+                        groups.push(std::mem::take(&mut current));
+                    }
+                    current.push_str(&surface);
+                    last_was_prefix = false;
+                    last_was_numeric = true;
                     if grouping == GroupingMode::None {
                         groups.push(std::mem::take(&mut current));
                     }
@@ -203,6 +354,7 @@ pub fn group_morphemes(
                     }
                     current.push_str(&surface);
                     last_was_prefix = false;
+                    last_was_numeric = false;
                     if grouping == GroupingMode::None {
                         groups.push(std::mem::take(&mut current));
                     }
@@ -210,6 +362,7 @@ pub fn group_morphemes(
                 MorphemePart::Dependent => {
                     current.push_str(&surface);
                     last_was_prefix = false;
+                    last_was_numeric = false;
                     if grouping == GroupingMode::None {
                         groups.push(std::mem::take(&mut current));
                     }
@@ -217,6 +370,7 @@ pub fn group_morphemes(
                 MorphemePart::Particle => {
                     current.push_str(&surface);
                     last_was_prefix = false;
+                    last_was_numeric = false;
                     let next_is_particle =
                         matches!(morphemes.peek(), Some((_, MorphemePart::Particle)));
                     if grouping == GroupingMode::None
@@ -237,11 +391,13 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = true;
                 last_was_prefix = false;
+                last_was_numeric = false;
             }
             MorphemePart::CloseBracket => {
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = false;
+                last_was_numeric = false;
                 let next_joins_to_this = matches!(
                     morphemes.peek(),
                     Some((
@@ -263,6 +419,7 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = false;
+                last_was_numeric = false;
                 let next_joins_to_this = matches!(
                     morphemes.peek(),
                     Some((
@@ -280,6 +437,7 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = false;
+                last_was_numeric = false;
                 let next_joins_to_this = matches!(
                     morphemes.peek(),
                     Some((
@@ -300,6 +458,63 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = true;
+                last_was_numeric = false;
+                if grouping == GroupingMode::None {
+                    let next_joins = matches!(
+                        morphemes.peek(),
+                        Some((
+                            _,
+                            MorphemePart::CloseBracket
+                                | MorphemePart::Punctuation
+                                | MorphemePart::TrailingSymbol
+                        ))
+                    );
+                    if !next_joins {
+                        groups.push(std::mem::take(&mut current));
+                    }
+                }
+            }
+            MorphemePart::Numeric => {
+                if grouping == GroupingMode::Bunsetsu
+                    && !current.is_empty()
+                    && !last_was_open_bracket
+                    && !last_was_prefix
+                    && !last_was_numeric
+                {
+                    groups.push(std::mem::take(&mut current));
+                }
+                current.push_str(&surface);
+                last_was_open_bracket = false;
+                last_was_prefix = false;
+                last_was_numeric = true;
+                if grouping == GroupingMode::None {
+                    let next_joins = matches!(
+                        morphemes.peek(),
+                        Some((
+                            _,
+                            MorphemePart::CloseBracket
+                                | MorphemePart::Punctuation
+                                | MorphemePart::TrailingSymbol
+                        ))
+                    );
+                    if !next_joins {
+                        groups.push(std::mem::take(&mut current));
+                    }
+                }
+            }
+            MorphemePart::Counter => {
+                if grouping == GroupingMode::Bunsetsu
+                    && !current.is_empty()
+                    && !last_was_open_bracket
+                    && !last_was_prefix
+                    && !last_was_numeric
+                {
+                    groups.push(std::mem::take(&mut current));
+                }
+                current.push_str(&surface);
+                last_was_open_bracket = false;
+                last_was_prefix = false;
+                last_was_numeric = true;
                 if grouping == GroupingMode::None {
                     let next_joins = matches!(
                         morphemes.peek(),
@@ -326,6 +541,7 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = false;
+                last_was_numeric = false;
                 if grouping == GroupingMode::None {
                     let next_joins = matches!(
                         morphemes.peek(),
@@ -345,6 +561,7 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = false;
+                last_was_numeric = false;
                 if grouping == GroupingMode::None {
                     let next_joins = matches!(
                         morphemes.peek(),
@@ -364,6 +581,7 @@ pub fn group_morphemes(
                 current.push_str(&surface);
                 last_was_open_bracket = false;
                 last_was_prefix = false;
+                last_was_numeric = false;
                 let next_joins = matches!(
                     morphemes.peek(),
                     Some((
@@ -389,13 +607,57 @@ pub fn group_morphemes(
 
     groups
 }
-
 #[cfg(test)]
 mod tests {
     use super::{classify_morpheme, group_morphemes, parse_grouping, GroupingMode, MorphemePart};
 
     fn morpheme(surface: &str, part: MorphemePart) -> (String, MorphemePart) {
         (surface.to_owned(), part)
+    }
+
+    #[test]
+    fn handles_numerics_and_counters() {
+        // リンゴを3個買いました。 -> ["リンゴを", "3個", "買いました。"]
+        let input1 = [
+            morpheme("リンゴ", MorphemePart::Independent),
+            morpheme("を", MorphemePart::Particle),
+            morpheme("3", MorphemePart::Numeric),
+            morpheme("個", MorphemePart::Counter),
+            morpheme("買い", MorphemePart::Independent),
+            morpheme("まし", MorphemePart::Dependent),
+            morpheme("た", MorphemePart::Dependent),
+            morpheme("。", MorphemePart::Punctuation),
+        ];
+        let groups1 = group_morphemes(input1, GroupingMode::Bunsetsu, true);
+        assert_eq!(groups1, ["リンゴを", "3個", "買いました。"]);
+        assert_eq!(groups1.join(""), "リンゴを3個買いました。");
+
+        // 一万二千円です。 -> ["一万二千円です。"]
+        let input2 = [
+            morpheme("一", MorphemePart::Numeric),
+            morpheme("万", MorphemePart::Numeric),
+            morpheme("二", MorphemePart::Numeric),
+            morpheme("千", MorphemePart::Numeric),
+            morpheme("円", MorphemePart::Counter),
+            morpheme("です", MorphemePart::Dependent),
+            morpheme("。", MorphemePart::Punctuation),
+        ];
+        let groups2 = group_morphemes(input2, GroupingMode::Bunsetsu, true);
+        assert_eq!(groups2, ["一万二千円です。"]);
+        assert_eq!(groups2.join(""), "一万二千円です。");
+
+        // 2026年9月4日 -> ["2026年9月4日"]
+        let input3 = [
+            morpheme("2026", MorphemePart::Numeric),
+            morpheme("年", MorphemePart::Counter),
+            morpheme("9", MorphemePart::Numeric),
+            morpheme("月", MorphemePart::Counter),
+            morpheme("4", MorphemePart::Numeric),
+            morpheme("日", MorphemePart::Counter),
+        ];
+        let groups3 = group_morphemes(input3, GroupingMode::Bunsetsu, true);
+        assert_eq!(groups3, ["2026年9月4日"]);
+        assert_eq!(groups3.join(""), "2026年9月4日");
     }
 
     #[test]
