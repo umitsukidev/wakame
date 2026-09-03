@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { transformHtml } from "../dist/index.js";
 
-test("does not insert break opportunities between inline SVG elements", async () => {
+await test("does not insert break opportunities between inline SVG elements", async () => {
 	const source = `<h2>導入<svg aria-label="日本語">
 	<defs>
 		<style>.cls-1 { fill: currentColor; }</style>
@@ -26,7 +26,7 @@ test("does not insert break opportunities between inline SVG elements", async ()
 	);
 });
 
-test("preserves foreign-content descendants when recomputing breaks", async () => {
+await test("preserves foreign-content descendants when recomputing breaks", async () => {
 	const source =
 		"<svg><foreignObject><div>SVG内のHTML</div></foreignObject><wbr /></svg><p>通常の本文</p>";
 	const wakame = {
