@@ -4,9 +4,11 @@ pre-commit:
       run: pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
     oxlint:
-      run: pnpm exec oxlint --no-error-on-unmatched-pattern {staged_files}
+      run: pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
     rustfmt:
       glob: "*.rs"
       run: rustfmt {staged_files}
       stage_fixed: true
+    cargo-check:
+      run: cargo check --manifest-path packages/sudachi/rust/Cargo.toml --locked
