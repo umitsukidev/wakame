@@ -8,14 +8,13 @@
 	"type": "module",
 	"scripts": {
 		"test": "echo \"Error: no test specified\" && exit 1",
-		"prepare": "husky"
+		"prepare": "lefthook install"
 	},
 	"devDependencies": {
 		"@changesets/cli": "^3.0.1",
 		"@changesets/config": "^4.0.0",
 		"@types/node": "^24.13.3",
-		"husky": "^9.1.7",
-		"lint-staged": "^17.4.1",
+		"lefthook": "^2.1.12",
 		"oxfmt": "^0.65.0",
 		"oxlint": "^1.81.0",
 		"oxlint-tsgolint": "^7.0.2001",
