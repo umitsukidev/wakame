@@ -12,3 +12,15 @@ pre-commit:
       stage_fixed: true
     cargo-check:
       run: cargo clippy --workspace --locked
+
+pre-push:
+  parallel: true
+  commands:
+    oxlint:
+      run: pnpm exec oxlint --check
+    oxfmt:
+      run: pnpm exec oxfmt --check
+    cargo-fmt:
+      run: cargo fmt --all --check
+    cargo-check:
+      run: cargo clippy --workspace --locked -- -D warnings
