@@ -592,10 +592,10 @@ pub fn group_morphemes(
                     ))
                 ) || (grouping == GroupingMode::Particle
                     && matches!(morphemes.peek(), Some((_, MorphemePart::Particle))));
-                if !next_joins {
-                    if grouping == GroupingMode::None || grouping == GroupingMode::Particle {
-                        groups.push(std::mem::take(&mut current));
-                    }
+                if !next_joins
+                    && (grouping == GroupingMode::None || grouping == GroupingMode::Particle)
+                {
+                    groups.push(std::mem::take(&mut current));
                 }
             }
         }
