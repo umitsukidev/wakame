@@ -21,3 +21,5 @@ jobs:
       - run: pnpm exec oxfmt --check .
       - run: pnpm exec oxlint .
       - run: pnpm -r run typecheck
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --locked
