@@ -29,10 +29,10 @@ jobs:
       astro_changed: ${{ steps.detect.outputs.astro_changed }}
       astro_version: ${{ steps.detect.outputs.astro_version }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
-      - uses: pnpm/setup@v2
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           install: false
       - id: detect
@@ -81,8 +81,8 @@ jobs:
       PACKAGE_VERSION: ${{ needs.detect.outputs.core_version }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
       - name: Configure npm authentication for the initial publish
@@ -119,11 +119,11 @@ jobs:
             suffix: darwin-arm64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
-      - uses: actions/cache@v6
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: |
             ~/.cargo/registry/index/
@@ -140,13 +140,13 @@ jobs:
           --output-dir generated
           --js native-binding.js --dts native-binding.d.ts
           --manifest-path rust/Cargo.toml
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sudachi-native-${{ matrix.suffix }}
           path: packages/sudachi/generated/wakame-sudachi.${{ matrix.suffix }}.node
           if-no-files-found: error
       - if: matrix.suffix == 'linux-x64-gnu'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: sudachi-loader
           path: |
@@ -166,18 +166,18 @@ jobs:
       PACKAGE_VERSION: ${{ needs.detect.outputs.sudachi_version }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: sudachi-loader
           path: packages/sudachi/generated
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           pattern: sudachi-native-*
           merge-multiple: true
@@ -235,8 +235,8 @@ jobs:
       PACKAGE_VERSION: ${{ needs.detect.outputs.vite_version }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
       - name: Configure npm authentication for the initial publish
@@ -262,8 +262,8 @@ jobs:
       PACKAGE_VERSION: ${{ needs.detect.outputs.astro_version }}
       NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: pnpm/setup@v2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
       - name: Configure npm authentication for the initial publish
