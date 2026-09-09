@@ -3,8 +3,8 @@ pre-commit:
   commands:
     oxc:
       run: |
+        pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files} &&
         pnpm exec oxfmt --no-error-on-unmatched-pattern {staged_files}
-        pnpm exec oxlint --fix --no-error-on-unmatched-pattern {staged_files}
       stage_fixed: true
     rustfmt:
       glob: "*.rs"
@@ -17,10 +17,10 @@ pre-push:
   parallel: true
   commands:
     oxlint:
-      run: pnpm exec oxlint --check
+      run: pnpm exec oxlint
     oxfmt:
       run: pnpm exec oxfmt --check
     cargo-fmt:
-      run: cargo fmt --all --check
+      run: cargo fmt --workspace --check
     cargo-check:
       run: cargo clippy --workspace --locked -- -D warnings

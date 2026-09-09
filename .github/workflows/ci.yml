@@ -16,10 +16,8 @@ jobs:
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: true
-      - run: pnpm --filter @wakamejs/core run build
-      - run: pnpm --filter @wakamejs/vite run build
-      - run: pnpm exec oxfmt --check .
-      - run: pnpm exec oxlint .
+      - run: pnpm exec oxfmt --check
+      - run: pnpm exec oxlint
       - run: pnpm -r run typecheck
-      - run: cargo fmt --check
-      - run: cargo clippy --workspace --locked
+      - run: cargo fmt --workspace --check
+      - run: cargo clippy --workspace --locked -- -D warnings
