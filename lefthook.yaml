@@ -21,6 +21,6 @@ pre-push:
     oxfmt:
       run: pnpm exec oxfmt --check
     cargo-fmt:
-      run: cargo fmt --workspace --check
+      run: cargo fmt --all --check
     cargo-check:
       run: cargo clippy --workspace --locked -- -D warnings
