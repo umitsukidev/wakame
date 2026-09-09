@@ -592,10 +592,10 @@ pub fn group_morphemes(
                     ))
                 ) || (grouping == GroupingMode::Particle
                     && matches!(morphemes.peek(), Some((_, MorphemePart::Particle))));
-                if !next_joins {
-                    if grouping == GroupingMode::None || grouping == GroupingMode::Particle {
-                        groups.push(std::mem::take(&mut current));
-                    }
+                if !next_joins
+                    && (grouping == GroupingMode::None || grouping == GroupingMode::Particle)
+                {
+                    groups.push(std::mem::take(&mut current));
                 }
             }
         }
@@ -609,7 +609,7 @@ pub fn group_morphemes(
 }
 #[cfg(test)]
 mod tests {
-    use super::{classify_morpheme, group_morphemes, parse_grouping, GroupingMode, MorphemePart};
+    use super::{GroupingMode, MorphemePart, classify_morpheme, group_morphemes, parse_grouping};
 
     fn morpheme(surface: &str, part: MorphemePart) -> (String, MorphemePart) {
         (surface.to_owned(), part)

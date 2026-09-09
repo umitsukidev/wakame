@@ -4,3 +4,7 @@ packages:
 allowBuilds:
   esbuild: true
   lefthook: true
+
+update:
+  changeset: true
+  githubActions: true

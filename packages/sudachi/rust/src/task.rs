@@ -1,9 +1,9 @@
-use crate::grouping::{classify_morpheme, group_morphemes, GroupingMode};
+use crate::grouping::{GroupingMode, classify_morpheme, group_morphemes};
 use napi::bindgen_prelude::{Env, Error, Result, Task};
 use napi_derive::napi;
 use std::sync::Arc;
 use sudachi::{
-    analysis::{stateless_tokenizer::StatelessTokenizer, Mode, Tokenize},
+    analysis::{Mode, Tokenize, stateless_tokenizer::StatelessTokenizer},
     dic::dictionary::JapaneseDictionary,
 };
 
