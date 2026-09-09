@@ -1,5 +1,5 @@
 use crate::{
-    grouping::{parse_grouping, GroupingMode},
+    grouping::{GroupingMode, parse_grouping},
     task::TokenizeTask,
 };
 use memmap2::Mmap;

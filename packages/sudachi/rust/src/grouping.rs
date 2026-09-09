@@ -609,7 +609,7 @@ pub fn group_morphemes(
 }
 #[cfg(test)]
 mod tests {
-    use super::{classify_morpheme, group_morphemes, parse_grouping, GroupingMode, MorphemePart};
+    use super::{GroupingMode, MorphemePart, classify_morpheme, group_morphemes, parse_grouping};
 
     fn morpheme(surface: &str, part: MorphemePart) -> (String, MorphemePart) {
         (surface.to_owned(), part)
