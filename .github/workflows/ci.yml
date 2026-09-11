@@ -17,6 +17,7 @@ jobs:
         with:
           cache: true
       - run: pnpm -r run build
+      - run: pnpm -r --if-present run test
       - run: pnpm exec oxfmt --check
       - run: pnpm exec oxlint
       - run: pnpm -r run typecheck

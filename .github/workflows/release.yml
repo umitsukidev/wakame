@@ -24,6 +24,8 @@ jobs:
       core_version: ${{ steps.detect.outputs.core_version }}
       sudachi_changed: ${{ steps.detect.outputs.sudachi_changed }}
       sudachi_version: ${{ steps.detect.outputs.sudachi_version }}
+      budoux_changed: ${{ steps.detect.outputs.budoux_changed }}
+      budoux_version: ${{ steps.detect.outputs.budoux_version }}
       vite_changed: ${{ steps.detect.outputs.vite_changed }}
       vite_version: ${{ steps.detect.outputs.vite_version }}
       astro_changed: ${{ steps.detect.outputs.astro_changed }}
@@ -70,6 +72,7 @@ jobs:
           }
           detect_package core packages/core/package.json '@wakamejs/core@'
           detect_package sudachi packages/sudachi/package.json '@wakamejs/sudachi@'
+          detect_package budoux packages/budoux/package.json '@wakamejs/budoux@'
           detect_package vite packages/vite/package.json '@wakamejs/vite@'
           detect_package astro packages/astro/package.json '@wakamejs/astro@'
 
@@ -221,6 +224,32 @@ jobs:
           fi
           pnpm publish "$root_tarball" --provenance --access public --no-git-checks
       - run: gh release create "@wakamejs/sudachi@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/sudachi ${PACKAGE_VERSION}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  budoux:
+    needs: [detect, core]
+    if: >-
+      always() &&
+      needs.detect.outputs.budoux_changed == 'true' &&
+      (needs.core.result == 'success' || needs.core.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ needs.detect.outputs.budoux_version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          cache: true
+      - name: Configure npm authentication for the initial publish
+        if: env.NPM_TOKEN != ''
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - run: pnpm --filter @wakamejs/core run build
+      - run: pnpm --filter @wakamejs/budoux run build
+      - working-directory: packages/budoux
+        run: pnpm publish --provenance --access public --no-git-checks
+      - run: gh release create "@wakamejs/budoux@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/budoux ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
