@@ -42,8 +42,8 @@
 		"@wakamejs/core": "workspace:*"
 	},
 	"devDependencies": {
-		"@napi-rs/cli": "^3.0.0",
-		"@types/node": "^24.0.0"
+		"@napi-rs/cli": "^3.10.4",
+		"@types/node": "^24.13.5"
 	},
 	"napi": {
 		"binaryName": "wakame-sudachi",
