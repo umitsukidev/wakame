@@ -57,6 +57,8 @@ export function Heading() {
 
 JSX/TSX モジュールを Babel の公開 AST API で変換する Rolldown プラグインを生成します。デフォルトでは `node_modules` と、カスタムコンポーネント・編集可能要素・`pre`・`code`・SVG・MathML などの内容を変換しません。
 
+変換対象は安全な組み込み要素の直接の `JSXText` と静的な文字列式です。`<span>` などの子要素をまたぐテキストは結合せず、各ノードを個別に処理します。動的な式はそのまま保持されます。
+
 #### オプション（`ReactRolldownPluginOptions`）
 
 | オプション        | 型                                         | デフォルト値         | 説明                                                             |
