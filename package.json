@@ -11,19 +11,19 @@
 		"prepare": "lefthook install"
 	},
 	"devDependencies": {
-		"@changesets/cli": "^3.0.2",
-		"@changesets/config": "^4.0.0",
-		"@types/node": "^24.13.3",
-		"lefthook": "^2.1.12",
+		"@changesets/cli": "^3.0.3",
+		"@changesets/config": "^4.0.1",
+		"@types/node": "^24.13.5",
+		"lefthook": "^2.1.14",
 		"oxfmt": "^0.67.0",
-		"oxlint": "^1.82.0",
-		"oxlint-tsgolint": "^7.0.2001",
+		"oxlint": "^1.83.0",
+		"oxlint-tsgolint": "^7.0.2002",
 		"typescript": "^7.0.2"
 	},
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
-			"version": "12.3.4",
+			"version": "12.4.2",
 			"onFail": "download"
 		},
 		"runtime": {
@@ -32,5 +32,5 @@
 			"onFail": "download"
 		}
 	},
-	"packageManager": "pnpm@12.3.4"
+	"packageManager": "pnpm@12.4.2"
 }
