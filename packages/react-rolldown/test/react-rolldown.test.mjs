@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, symlink, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import test from "node:test";
@@ -103,7 +104,7 @@ await test("accepts additional Babel parser plugins for decorators", async () =>
 	assert.match(result.code, /<wbr \/>/);
 });
 
-await test("does not transform dynamic, cross-child, custom, foreign, or restricted content", async () => {
+await test("does not join text across inline JSX children or transform excluded content", async () => {
 	const { calls, tokenizer } = createTokenizer((text) => [text.slice(0, 1), text.slice(1)]);
 	const result = await transform(
 		`const dynamic = "動的";
@@ -120,7 +121,7 @@ const view = <>
   <div contentEditable>編集可能</div>
   <div dangerouslySetInnerHTML={{ __html: "危険" }} />
   <div data-wakame-ignore>除外</div>
-  {createPortal("Portal", portalTarget)}
+  {createPortal(<div>Portal</div>, portalTarget)}
   <pre>Pre</pre><code>Code</code>
 </>;`,
 		"/project/src/App.jsx",
@@ -142,6 +143,18 @@ const view = <>
 	assert.equal(
 		calls.some(({ text }) => text === "インライン跨ぎ本文"),
 		false,
+	);
+	assert.equal(
+		calls.some(({ text }) => text === "インライン"),
+		true,
+	);
+	assert.equal(
+		calls.some(({ text }) => text === "跨ぎ"),
+		true,
+	);
+	assert.equal(
+		calls.some(({ text }) => text === "本文"),
+		true,
 	);
 });
 
@@ -178,81 +191,89 @@ await test("throws when tokenizer output cannot reconstruct text", async () => {
 });
 
 await test("bundles the same transformed component for server and client and hydrates without errors", async () => {
-	const directory = await mkdtemp(join(process.cwd(), ".wakame-react-"));
-	const entry = join(directory, "App.jsx");
-	await writeFile(
-		entry,
-		'import React from "react";\nexport function App() { return <div id="app">こんにちは世界</div>; }\n',
-	);
-	const splitTokenizer = () =>
-		createTokenizer((text) => (text === "こんにちは世界" ? ["こんにちは", "世界"] : [text]))
-			.tokenizer;
-
-	async function bundle(platform) {
-		const build = await rolldown({
-			input: entry,
-			platform,
-			external: [/^react(?:\/|$)/],
-			plugins: [wakameReactPlugin({ tokenizer: splitTokenizer() })],
-			transform: { jsx: "react-jsx" },
-		});
-		const generated = await build.generate({ format: "esm", sourcemap: true });
-		const output = generated.output.find((item) => item.type === "chunk");
-		assert.ok(output);
-		const outputPath = join(directory, `${platform}.mjs`);
-		await writeFile(outputPath, output.code);
-		return {
-			module: await import(`${pathToFileURL(outputPath).href}?${platform}`),
-			code: output.code,
-		};
-	}
-
-	const server = await bundle("node");
-	const client = await bundle("browser");
-	assert.match(server.code, /wbr/);
-	assert.match(client.code, /wbr/);
-
-	const serverHtml = renderToString(React.createElement(server.module.App));
-	const expectedDom = new JSDOM(`<main>${serverHtml}</main>`).window.document.querySelector("main");
-	assert.ok(expectedDom);
-
-	const dom = new JSDOM(`<main>${serverHtml}</main>`, { url: "http://localhost/" });
-	const previous = new Map([
-		["window", Object.getOwnPropertyDescriptor(globalThis, "window")],
-		["document", Object.getOwnPropertyDescriptor(globalThis, "document")],
-		["navigator", Object.getOwnPropertyDescriptor(globalThis, "navigator")],
-	]);
-	for (const [key, value] of Object.entries({
-		window: dom.window,
-		document: dom.window.document,
-		navigator: dom.window.navigator,
-	})) {
-		Object.defineProperty(globalThis, key, {
-			configurable: true,
-			enumerable: true,
-			writable: true,
-			value,
-		});
-	}
-	const recoverableErrors = [];
+	const directory = await mkdtemp(join(tmpdir(), "wakame-react-"));
 	try {
-		const container = dom.window.document.querySelector("main");
-		assert.ok(container);
-		hydrateRoot(container, React.createElement(client.module.App), {
-			onRecoverableError(error) {
-				recoverableErrors.push(error);
-			},
-		});
-		await new Promise((resolve) => setTimeout(resolve, 0));
-		await new Promise((resolve) => setImmediate(resolve));
-		assert.deepEqual(recoverableErrors, []);
-		assert.equal(container.innerHTML, expectedDom.innerHTML);
-	} finally {
-		for (const [key, descriptor] of previous) {
-			if (descriptor === undefined) delete globalThis[key];
-			else Object.defineProperty(globalThis, key, descriptor);
+		const nodeModules = join(directory, "node_modules");
+		await mkdir(nodeModules);
+		await symlink(join(process.cwd(), "node_modules/react"), join(nodeModules, "react"), "dir");
+		const entry = join(directory, "App.jsx");
+		await writeFile(
+			entry,
+			'import React from "react";\nexport function App() { return <div id="app">こんにちは世界</div>; }\n',
+		);
+		const splitTokenizer = () =>
+			createTokenizer((text) => (text === "こんにちは世界" ? ["こんにちは", "世界"] : [text]))
+				.tokenizer;
+
+		async function bundle(platform) {
+			const build = await rolldown({
+				input: entry,
+				platform,
+				external: [/^react(?:\/|$)/],
+				plugins: [wakameReactPlugin({ tokenizer: splitTokenizer() })],
+				transform: { jsx: "react-jsx" },
+			});
+			const generated = await build.generate({ format: "esm", sourcemap: true });
+			const output = generated.output.find((item) => item.type === "chunk");
+			assert.ok(output);
+			const outputPath = join(directory, `${platform}.mjs`);
+			await writeFile(outputPath, output.code);
+			return {
+				module: await import(`${pathToFileURL(outputPath).href}?${platform}`),
+				code: output.code,
+			};
 		}
-		dom.window.close();
+
+		const server = await bundle("node");
+		const client = await bundle("browser");
+		assert.match(server.code, /wbr/);
+		assert.match(client.code, /wbr/);
+
+		const serverHtml = renderToString(React.createElement(server.module.App));
+		const expectedDom = new JSDOM(`<main>${serverHtml}</main>`).window.document.querySelector(
+			"main",
+		);
+		assert.ok(expectedDom);
+
+		const dom = new JSDOM(`<main>${serverHtml}</main>`, { url: "http://localhost/" });
+		const previous = new Map([
+			["window", Object.getOwnPropertyDescriptor(globalThis, "window")],
+			["document", Object.getOwnPropertyDescriptor(globalThis, "document")],
+			["navigator", Object.getOwnPropertyDescriptor(globalThis, "navigator")],
+		]);
+		for (const [key, value] of Object.entries({
+			window: dom.window,
+			document: dom.window.document,
+			navigator: dom.window.navigator,
+		})) {
+			Object.defineProperty(globalThis, key, {
+				configurable: true,
+				enumerable: true,
+				writable: true,
+				value,
+			});
+		}
+		const recoverableErrors = [];
+		try {
+			const container = dom.window.document.querySelector("main");
+			assert.ok(container);
+			hydrateRoot(container, React.createElement(client.module.App), {
+				onRecoverableError(error) {
+					recoverableErrors.push(error);
+				},
+			});
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			await new Promise((resolve) => setImmediate(resolve));
+			assert.deepEqual(recoverableErrors, []);
+			assert.equal(container.innerHTML, expectedDom.innerHTML);
+		} finally {
+			for (const [key, descriptor] of previous) {
+				if (descriptor === undefined) delete globalThis[key];
+				else Object.defineProperty(globalThis, key, descriptor);
+			}
+			dom.window.close();
+		}
+	} finally {
+		await rm(directory, { recursive: true, force: true });
 	}
-	await rm(directory, { recursive: true, force: true });
 });
