@@ -5,9 +5,9 @@ React の JSX をビルド時に解析し、日本語テキストを意味的な
 ## インストール
 
 ```bash
-pnpm add -D @wakamejs/react-rolldown @wakamejs/core
+pnpm add -D @wakamejs/react-rolldown @wakamejs/core @wakamejs/sudachi
 # または
-npm install -D @wakamejs/react-rolldown @wakamejs/core
+npm install -D @wakamejs/react-rolldown @wakamejs/core @wakamejs/sudachi
 ```
 
 トークナイザーの実装（[`@wakamejs/sudachi`](../sudachi) など）と Rolldown も必要です。
@@ -61,7 +61,7 @@ JSX/TSX モジュールを Babel の公開 AST API で変換する Rolldown プ�
 
 | オプション        | 型                                         | デフォルト値         | 説明                                                             |
 | :---------------- | :----------------------------------------- | :------------------- | :--------------------------------------------------------------- |
-| `tokenizer`       | `Tokenizer<string>`                        | **必須**             | テキストを分割するトークナイザー実装                             |
+| `tokenizer`       | `Tokenizer<string, string>`                | **必須**             | テキストを分割するトークナイザー実装                             |
 | `dictionary`      | `DictionaryInput`                          | `undefined`          | トークナイザーへ渡すカスタム辞書                                 |
 | `include`         | `string \| RegExp \| (string \| RegExp)[]` | `/\.[jt]sx/`         | 変換対象モジュールのフィルター                                   |
 | `exclude`         | `string \| RegExp \| (string \| RegExp)[]` | `undefined`          | 変換から除外するモジュールのフィルター                           |
