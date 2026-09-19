@@ -28,6 +28,8 @@ jobs:
       vite_version: ${{ steps.detect.outputs.vite_version }}
       astro_changed: ${{ steps.detect.outputs.astro_changed }}
       astro_version: ${{ steps.detect.outputs.astro_version }}
+      react_rolldown_changed: ${{ steps.detect.outputs.react_rolldown_changed }}
+      react_rolldown_version: ${{ steps.detect.outputs.react_rolldown_version }}
     steps:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
@@ -72,6 +74,7 @@ jobs:
           detect_package sudachi packages/sudachi/package.json '@wakamejs/sudachi@'
           detect_package vite packages/vite/package.json '@wakamejs/vite@'
           detect_package astro packages/astro/package.json '@wakamejs/astro@'
+          detect_package react_rolldown packages/react-rolldown/package.json '@wakamejs/react-rolldown@'
 
   core:
     needs: detect
@@ -275,5 +278,31 @@ jobs:
       - working-directory: packages/astro
         run: pnpm publish --provenance --access public --no-git-checks
       - run: gh release create "@wakamejs/astro@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/astro ${PACKAGE_VERSION}" --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  react-rolldown:
+    needs: [detect, core]
+    if: >-
+      always() &&
+      needs.detect.outputs.react_rolldown_changed == 'true' &&
+      (needs.core.result == 'success' || needs.core.result == 'skipped')
+    runs-on: ubuntu-latest
+    env:
+      PACKAGE_VERSION: ${{ needs.detect.outputs.react_rolldown_version }}
+      NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+      - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
+        with:
+          cache: true
+      - name: Configure npm authentication for the initial publish
+        if: env.NPM_TOKEN != ''
+        run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
+      - run: pnpm --filter @wakamejs/core run build
+      - run: pnpm --filter @wakamejs/react-rolldown run build
+      - working-directory: packages/react-rolldown
+        run: pnpm publish --provenance --access public --no-git-checks
+      - run: gh release create "@wakamejs/react-rolldown@${PACKAGE_VERSION}" --target "$GITHUB_SHA" --title "@wakamejs/react-rolldown ${PACKAGE_VERSION}" --generate-notes
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
