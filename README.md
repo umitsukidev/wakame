@@ -7,6 +7,7 @@ Wakame は、日本語テキストを意味的な単位（文節など）で分�
 本リポジトリは monorepo 構成です。各パッケージの詳細や利用方法はそれぞれの README をご覧ください。
 
 - [`@wakamejs/core`](./packages/core): コアインターフェースおよびオーケストレーション機能
+- [`@wakamejs/budoux`](./packages/budoux): BudouX を用いた多言語トークナイザー
 - [`@wakamejs/sudachi`](./packages/sudachi): 形態素解析エンジン Sudachi を用いた高精度トークナイザー（辞書同梱）
 - [`@wakamejs/vite`](./packages/vite): HTML に `<wbr>` を自動挿入する Vite プラグイン
 - [`@wakamejs/astro`](./packages/astro): Astro サイト向けインテグレーション
