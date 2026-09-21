@@ -177,8 +177,10 @@ const view = <>
 			),
 		);
 
-		expect(result.code).toMatch(/<MyComponent><div>カスタム配下<\/div><\/MyComponent>/);
-		expect(result.code).not.toMatch(/カスタム配下<\/div><wbr/);
+		expect(result.code).toMatch(
+			/<MyComponent><div>\{"\\u30AB"\}<wbr \/>\{"\\u30B9\\u30BF\\u30E0\\u914D\\u4E0B"\}<\/div><\/MyComponent>/,
+		);
+		expect(result.code).toMatch(/<Namespace.Component>メンバー配下<\/Namespace.Component>/);
 		expect(result.code).toMatch(/<svg><text>SVG<\/text><\/svg>/);
 		expect(result.code).toMatch(/<table><tbody><tr><td>Table<\/td><\/tr><\/tbody><\/table>/);
 		expect(calls.some(({ text }) => text === "Portal")).toBe(false);
@@ -187,6 +189,28 @@ const view = <>
 		expect(calls.some(({ text }) => text === "インライン")).toBe(true);
 		expect(calls.some(({ text }) => text === "跨ぎ")).toBe(true);
 		expect(calls.some(({ text }) => text === "本文")).toBe(true);
+	});
+
+	test("traverses custom component descendants without transforming their direct children", async () => {
+		const { calls, tokenizer } = createTokenizer((text) =>
+			text === "日本語の見出し" ? ["日本語", "の見出し"] : [text],
+		);
+		const result = requireResult(
+			await transform(
+				`const view = <PageLayout>
+				  直接の日本語
+				  <main><h1>日本語の見出し</h1></main>
+				</PageLayout>;`,
+				"/project/src/App.jsx",
+				{ tokenizer },
+			),
+		);
+
+		expect(result.code).toContain("直接の日本語");
+		expect(result.code).toMatch(
+			/<main><h1>\{"\\u65E5\\u672C\\u8A9E"\}<wbr \/>\{"\\u306E\\u898B\\u51FA\\u3057"\}<\/h1><\/main>/,
+		);
+		expect(calls).toEqual([{ text: "日本語の見出し", dictionary: [] }]);
 	});
 
 	test("honors include, exclude, node_modules, and dictionary options", async () => {

@@ -168,6 +168,12 @@ function isSafeIntrinsic(element: t.JSXElement, ignoreAttribute: string): boolea
 	return !hasOptOutAttribute(element.openingElement, ignoreAttribute);
 }
 
+function shouldSkipSubtree(element: t.JSXElement, ignoreAttribute: string): boolean {
+	if (hasOptOutAttribute(element.openingElement, ignoreAttribute)) return true;
+	const name = elementName(element.openingElement);
+	return name !== undefined && (skipElements.has(name) || restrictedElements.has(name));
+}
+
 function buildSemanticText(node: t.JSXText | t.JSXExpressionContainer): string | undefined {
 	const child = t.cloneNode(node, true);
 	const fragment = t.jsxFragment(t.jsxOpeningFragment(), t.jsxClosingFragment(), [child]);
@@ -194,10 +200,11 @@ function collectCandidates(ast: t.File, ignoreAttribute: string): Candidate[] {
 			if (isPortalCallee(path.node.callee)) path.skip();
 		},
 		JSXElement(path) {
-			if (!isSafeIntrinsic(path.node, ignoreAttribute)) {
+			if (shouldSkipSubtree(path.node, ignoreAttribute)) {
 				path.skip();
 				return;
 			}
+			if (!isSafeIntrinsic(path.node, ignoreAttribute)) return;
 
 			for (const childPath of path.get("children")) {
 				if (!childPath.isJSXText() && !childPath.isJSXExpressionContainer()) continue;
