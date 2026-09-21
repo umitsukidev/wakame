@@ -340,22 +340,8 @@ function createRuntimeModule(
 }
 
 function isBareModuleSpecifier(specifier: string): boolean {
-	return !(
-		specifier.length === 0 ||
-		specifier.startsWith("/") ||
-		specifier.startsWith("./") ||
-		specifier.startsWith(".\\") ||
-		specifier.startsWith("../") ||
-		specifier.startsWith("..\\") ||
-		specifier.startsWith("file:") ||
-		specifier.startsWith("http:") ||
-		specifier.startsWith("https:") ||
-		specifier.startsWith("node:") ||
-		specifier.startsWith("data:") ||
-		specifier.startsWith("virtual:") ||
-		specifier.startsWith("\0") ||
-		specifier.startsWith("#") ||
-		/^(?:[A-Za-z]:[\\/]|\\\\)/.test(specifier)
+	return (
+		specifier.length > 0 && !/^(?:\.\.?[\\/]|[\\/#\0]|[A-Za-z][A-Za-z0-9+.-]*:)/.test(specifier)
 	);
 }
 

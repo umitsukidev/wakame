@@ -30,6 +30,15 @@ interface TransformResult {
 	};
 }
 
+interface ViteTestConfig {
+	optimizeDeps?: { include?: string[] };
+	ssr?: { optimizeDeps?: { include?: string[] } };
+}
+
+interface ViteConfigHookPlugin {
+	config?: (config: ViteTestConfig) => void;
+}
+
 const runtimeModuleRequest = "virtual:test-wakame-runtime";
 const runtimeModuleId = `\0${runtimeModuleRequest}`;
 const bareRuntimeModuleRequest = "test-wakame-runtime";
@@ -415,6 +424,41 @@ const view = <>
 		expect(renderToString(React.createElement(module.App, { value: "動的日本語" }))).toContain(
 			"動的\u200B日本語",
 		);
+	});
+
+	test("does not optimize URI, path, or virtual runtime specifiers", () => {
+		const nonBareModules = [
+			"/runtime",
+			"./runtime",
+			"../runtime",
+			"\\runtime",
+			"C:\\runtime",
+			"cloudflare:runtime",
+			"bun:runtime",
+			"npm:runtime",
+			"#runtime",
+			"\0runtime",
+		];
+
+		for (const module of nonBareModules) {
+			const { tokenizer } = createRuntimeTokenizer();
+			tokenizer.runtime = { module, export: "createTestSegmenter" };
+			const plugin = wakameReactPlugin({ tokenizer }) as ViteConfigHookPlugin;
+			const config: ViteTestConfig = {
+				optimizeDeps: { include: ["existing"] },
+				ssr: { optimizeDeps: { include: ["existing-ssr"] } },
+			};
+			plugin.config?.(config);
+			expect(config.optimizeDeps?.include).toEqual(["existing"]);
+			expect(config.ssr?.optimizeDeps?.include).toEqual(["existing-ssr"]);
+		}
+
+		const { tokenizer } = createRuntimeTokenizer();
+		tokenizer.runtime = { module: "npm-package", export: "createTestSegmenter" };
+		const plugin = wakameReactPlugin({ tokenizer }) as ViteConfigHookPlugin;
+		const config: ViteTestConfig = { optimizeDeps: { include: ["existing"] } };
+		plugin.config?.(config);
+		expect(config.optimizeDeps?.include).toEqual(["existing", "npm-package"]);
 	});
 
 	test("rejects dynamic JSX when the tokenizer has no runtime descriptor", async () => {
