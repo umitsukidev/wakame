@@ -32,14 +32,18 @@ interface TransformResult {
 
 const runtimeModuleRequest = "virtual:test-wakame-runtime";
 const runtimeModuleId = `\0${runtimeModuleRequest}`;
+const bareRuntimeModuleRequest = "test-wakame-runtime";
+const bareRuntimeModuleId = `\0${bareRuntimeModuleRequest}`;
 
 const runtimeModulePlugin = {
 	name: "test-wakame-runtime",
 	resolveId(source: string) {
-		return source === runtimeModuleRequest ? runtimeModuleId : null;
+		if (source === runtimeModuleRequest) return runtimeModuleId;
+		if (source === bareRuntimeModuleRequest) return bareRuntimeModuleId;
+		return null;
 	},
 	load(id: string) {
-		if (id !== runtimeModuleId) return null;
+		if (id !== runtimeModuleId && id !== bareRuntimeModuleId) return null;
 		return `export function createTestSegmenter(options, context) {
   if (JSON.stringify(options?.expectedDictionary ?? []) !== JSON.stringify(context.dictionary)) {
     throw new Error("runtime dictionary mismatch");
@@ -376,6 +380,43 @@ const view = <>
 		expect(html.match(/既に\u200B済/g)?.length).toBe(1);
 	});
 
+	test("keeps bare runtime modules compatible with direct Rolldown usage", async () => {
+		using temporaryDirectory = mkdtempDisposableSync(
+			join(tmpdir(), "wakame-rolldown-bare-runtime-"),
+		);
+		const directory = temporaryDirectory.path;
+		const nodeModules = join(directory, "node_modules");
+		mkdirSync(nodeModules);
+		symlinkSync(join(process.cwd(), "node_modules/react"), join(nodeModules, "react"), "dir");
+		const entry = join(directory, "App.jsx");
+		writeFileSync(
+			entry,
+			'import React from "react";\nexport function App({ value }) { return <main>{value}</main>; }\n',
+		);
+		const { tokenizer } = createRuntimeTokenizer();
+		tokenizer.runtime = {
+			module: bareRuntimeModuleRequest,
+			export: "createTestSegmenter",
+		};
+		const build = await rolldown({
+			input: entry,
+			external: [/^react(?:\/|$)/],
+			plugins: [runtimeModulePlugin, wakameReactPlugin({ tokenizer })],
+			transform: { jsx: "react-jsx" },
+		});
+		const generated = await build.generate({ format: "esm" });
+		const output = generated.output.find((item) => item.type === "chunk");
+		if (output === undefined || output.type !== "chunk") throw new Error("Expected a chunk");
+		const outputPath = join(directory, "runtime.mjs");
+		writeFileSync(outputPath, output.code);
+		const module = (await import(`${pathToFileURL(outputPath).href}?bare-runtime`)) as {
+			App: ComponentType<{ value: string }>;
+		};
+		expect(renderToString(React.createElement(module.App, { value: "動的日本語" }))).toContain(
+			"動的\u200B日本語",
+		);
+	});
+
 	test("rejects dynamic JSX when the tokenizer has no runtime descriptor", async () => {
 		await expect(
 			transform("const view = <div>{value}</div>;", "/project/src/App.jsx"),
@@ -403,6 +444,98 @@ const view = <>
 			const transformed = await server.transformRequest("/App.jsx", { ssr: true });
 			expect(transformed?.code).toContain("virtual:@wakamejs/react-rolldown/runtime");
 			expect(transformed?.code).toContain("__vite_ssr_import__");
+		} finally {
+			await server.close();
+		}
+	});
+
+	test("preserves React hook dispatching in Vite dev SSR", async () => {
+		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-vite-hooks-"));
+		const directory = temporaryDirectory.path;
+		const nodeModules = join(directory, "node_modules");
+		mkdirSync(nodeModules);
+		symlinkSync(join(process.cwd(), "node_modules/react"), join(nodeModules, "react"), "dir");
+		writeFileSync(
+			join(directory, "App.jsx"),
+			`import React, { createContext, useContext } from "react";
+const TextContext = createContext("既定値");
+function Child() { return <span>{useContext(TextContext)}</span>; }
+export function App() { return <TextContext.Provider value="動的日本語"><Child /></TextContext.Provider>; }
+`,
+		);
+		const server = await createServer({
+			root: directory,
+			appType: "custom",
+			logLevel: "silent",
+			plugins: [wakameReactPlugin({ tokenizer: createFileRuntimeTokenizer() })],
+			server: { middlewareMode: true },
+		});
+		try {
+			const module = (await server.ssrLoadModule("/App.jsx")) as {
+				App: ComponentType;
+			};
+			expect(renderToString(React.createElement(module.App))).toContain("動的\u200B日本語");
+		} finally {
+			await server.close();
+		}
+	});
+
+	test("pre-includes bare runtime modules in every Vite environment", async () => {
+		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-vite-optimizer-"));
+		const directory = temporaryDirectory.path;
+		const nodeModules = join(directory, "node_modules");
+		const runtimePackage = join(nodeModules, "test-wakame-runtime");
+		mkdirSync(nodeModules);
+		symlinkSync(join(process.cwd(), "node_modules/react"), join(nodeModules, "react"), "dir");
+		mkdirSync(runtimePackage);
+		writeFileSync(
+			join(runtimePackage, "package.json"),
+			JSON.stringify({
+				name: "test-wakame-runtime",
+				private: true,
+				type: "module",
+				exports: "./index.mjs",
+			}),
+		);
+		writeFileSync(
+			join(runtimePackage, "index.mjs"),
+			"export function createTestSegmenter() { return { segment: (text) => [text] }; }\n",
+		);
+		writeFileSync(
+			join(directory, "App.jsx"),
+			`import React, { createContext, useContext } from "react";
+const TextContext = createContext("既定値");
+function Child() { return <span>{useContext(TextContext)}</span>; }
+export function App() { return <TextContext.Provider value="動的日本語"><Child /></TextContext.Provider>; }
+`,
+		);
+		const { tokenizer } = createRuntimeTokenizer();
+		tokenizer.runtime = {
+			module: "test-wakame-runtime",
+			export: "createTestSegmenter",
+		};
+		const server = await createServer({
+			root: directory,
+			appType: "custom",
+			logLevel: "silent",
+			optimizeDeps: { include: ["existing-client-dependency"] },
+			ssr: { optimizeDeps: { include: ["existing-server-dependency"] } },
+			plugins: [wakameReactPlugin({ tokenizer })],
+			server: { middlewareMode: true },
+		});
+		try {
+			const clientInclude = server.environments.client.config.optimizeDeps.include ?? [];
+			const serverInclude = server.environments.ssr.config.optimizeDeps.include ?? [];
+			expect(clientInclude).toContain("test-wakame-runtime");
+			expect(serverInclude).toContain("test-wakame-runtime");
+			expect(clientInclude.filter((entry) => entry === "test-wakame-runtime")).toHaveLength(1);
+			expect(serverInclude.filter((entry) => entry === "test-wakame-runtime")).toHaveLength(1);
+			expect(clientInclude).toContain("existing-client-dependency");
+			expect(serverInclude).toContain("existing-server-dependency");
+			const module = (await server.ssrLoadModule("/App.jsx")) as {
+				App: ComponentType;
+			};
+			expect(renderToString(React.createElement(module.App))).toContain("動的日本語");
 		} finally {
 			await server.close();
 		}
