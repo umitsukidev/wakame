@@ -4,6 +4,6 @@
 "@wakamejs/react-rolldown": minor
 ---
 
-Add generic runtime tokenizer descriptors and synchronous runtime segmentation so the React Rolldown and Vite plugin can insert zero-width spaces into both static and dynamic JSX text during SSR and hydration.
+汎用の runtime tokenizer descriptor と同期 runtime segmentation を追加し、React向けRolldown・ViteプラグインがSSRとhydrationの両方で静的・動的なJSXテキストへゼロ幅スペースを挿入できるようにしました。
 
-The React integration now uses U+200B instead of `<wbr>`, traverses custom component children, supports ignored component names and runtime dictionaries, and requires no automatic CSS or JSX attributes.
+React連携は `<wbr>` の代わりにU+200Bを使用し、カスタムコンポーネントのchildrenを走査します。コンポーネント名による除外とruntime dictionaryにも対応し、CSSやJSX attributesを自動付与しません。
