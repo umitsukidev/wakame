@@ -40,7 +40,10 @@ const runtimeModulePlugin = {
 	},
 	load(id: string) {
 		if (id !== runtimeModuleId) return null;
-		return `export function createTestSegmenter() {
+		return `export function createTestSegmenter(options, context) {
+  if (JSON.stringify(options?.expectedDictionary ?? []) !== JSON.stringify(context.dictionary)) {
+    throw new Error("runtime dictionary mismatch");
+  }
   return { segment(text) {
     if (text === "動的日本語" || text === "配列日本語") return [text.slice(0, 2), text.slice(2)];
     return [text.slice(0, 1), text.slice(1)];
@@ -67,6 +70,7 @@ function createTokenizer(splitText: (text: string) => readonly string[] = (text)
 
 function createRuntimeTokenizer(
 	splitText: (text: string) => readonly string[] = (text) => [text],
+	expectedDictionary: readonly string[] = [],
 ): {
 	calls: TokenizerCall[];
 	tokenizer: TestTokenizer;
@@ -79,7 +83,7 @@ function createRuntimeTokenizer(
 			runtime: {
 				module: runtimeModuleRequest,
 				export: "createTestSegmenter",
-				options: { language: "test" },
+				options: { expectedDictionary: [...expectedDictionary] },
 			},
 		},
 	};
@@ -276,6 +280,39 @@ const view = <>
 		expect(calls.map(({ text }) => text)).toEqual(["直接の日本語", "静的な式", "日本語の見出し"]);
 	});
 
+	test("processes static and dynamic direct children of JSX fragments", async () => {
+		const { calls, tokenizer } = createRuntimeTokenizer((text) =>
+			text === "フラグメント静的" ? ["フラグメント", "静的"] : [text],
+		);
+		const result = requireResult(
+			await transform(
+				`function Component({ value }) { return <>フラグメント静的{value}</>; }`,
+				"/project/src/App.jsx",
+				{ tokenizer },
+			),
+		);
+
+		expect(calls.map(({ text }) => text)).toEqual(["フラグメント静的"]);
+		expect(result.code).toMatch(
+			/\{"\\u30D5\\u30E9\\u30B0\\u30E1\\u30F3\\u30C8\\u200B\\u9759\\u7684"\}/,
+		);
+		expect(result.code).toMatch(/_wakameRuntime\(value\)/);
+	});
+
+	test("does not duplicate existing static zero-width spaces", async () => {
+		const { tokenizer } = createTokenizer((text) =>
+			text === "日本\u200B語" ? ["日本", "\u200B語"] : [text],
+		);
+		const result = requireResult(
+			await transform('const view = <div>{"日本\u200B語"}</div>;', "/project/src/App.jsx", {
+				tokenizer,
+			}),
+		);
+
+		expect(result.code).toContain("\\u65E5\\u672C\\u200B\\u8A9E");
+		expect(result.code).not.toContain("\\u200B\\u200B");
+	});
+
 	test("ignores configured identifier, member, and namespaced components", async () => {
 		const { calls, tokenizer } = createTokenizer((text) => [text.slice(0, 1), text.slice(1)]);
 		const result = requireResult(
@@ -312,11 +349,11 @@ const view = <>
 			entry,
 			'import React from "react";\nfunction Paragraph({ children }) { return <section>{children}</section>; }\nexport function App({ value, items }) { return <Paragraph>{value}{items}{42}</Paragraph>; }\n',
 		);
-		const { tokenizer } = createRuntimeTokenizer();
+		const { tokenizer } = createRuntimeTokenizer(undefined, ["固有語"]);
 		const build = await rolldown({
 			input: entry,
 			external: [/^react(?:\/|$)/],
-			plugins: [runtimeModulePlugin, wakameReactPlugin({ tokenizer })],
+			plugins: [runtimeModulePlugin, wakameReactPlugin({ tokenizer, dictionary: ["固有語"] })],
 			transform: { jsx: "react-jsx" },
 		});
 		const generated = await build.generate({ format: "esm" });
@@ -363,9 +400,9 @@ const view = <>
 			server: { middlewareMode: true },
 		});
 		try {
-			const transformed = await server.transformRequest("/App.jsx");
+			const transformed = await server.transformRequest("/App.jsx", { ssr: true });
 			expect(transformed?.code).toContain("virtual:@wakamejs/react-rolldown/runtime");
-			expect(transformed?.code).toContain("_wakameRuntime");
+			expect(transformed?.code).toContain("__vite_ssr_import__");
 		} finally {
 			await server.close();
 		}
@@ -409,6 +446,84 @@ const view = <>
 		};
 		const html = renderToString(React.createElement(module.App, { value: "本番日本語" }));
 		expect(html).toContain("本番\u200B日本語");
+	});
+
+	test("hydrates dynamic runtime text consistently between server and client", async () => {
+		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-react-dynamic-"));
+		const directory = temporaryDirectory.path;
+		const nodeModules = join(directory, "node_modules");
+		mkdirSync(nodeModules);
+		symlinkSync(join(process.cwd(), "node_modules/react"), join(nodeModules, "react"), "dir");
+		const entry = join(directory, "App.jsx");
+		writeFileSync(
+			entry,
+			'import React from "react";\nexport function App({ value }) { return <main>{value}</main>; }\n',
+		);
+		const { tokenizer } = createRuntimeTokenizer();
+
+		async function bundle(platform: "node" | "browser") {
+			const build = await rolldown({
+				input: entry,
+				platform,
+				external: [/^react(?:\/|$)/],
+				plugins: [runtimeModulePlugin, wakameReactPlugin({ tokenizer })],
+				transform: { jsx: "react-jsx" },
+			});
+			const generated = await build.generate({ format: "esm" });
+			const output = generated.output.find((item) => item.type === "chunk");
+			if (output === undefined || output.type !== "chunk") throw new Error("Expected a chunk");
+			const outputPath = join(directory, `${platform}-dynamic.mjs`);
+			writeFileSync(outputPath, output.code);
+			return (await import(`${pathToFileURL(outputPath).href}?${platform}-dynamic`)) as {
+				App: ComponentType<{ value: string }>;
+			};
+		}
+
+		const server = await bundle("node");
+		const client = await bundle("browser");
+		const props = { value: "動的日本語" };
+		const serverHtml = renderToString(React.createElement(server.App, props));
+		const clientHtml = renderToString(React.createElement(client.App, props));
+		expect(serverHtml).toBe(clientHtml);
+
+		const dom = new JSDOM(`<main>${serverHtml}</main>`, { url: "http://localhost/" });
+		const previous = new Map([
+			["window", Object.getOwnPropertyDescriptor(globalThis, "window")],
+			["document", Object.getOwnPropertyDescriptor(globalThis, "document")],
+			["navigator", Object.getOwnPropertyDescriptor(globalThis, "navigator")],
+		]);
+		for (const [key, value] of Object.entries({
+			window: dom.window,
+			document: dom.window.document,
+			navigator: dom.window.navigator,
+		})) {
+			Object.defineProperty(globalThis, key, {
+				configurable: true,
+				enumerable: true,
+				writable: true,
+				value,
+			});
+		}
+		const recoverableErrors: unknown[] = [];
+		try {
+			const container = dom.window.document.querySelector("main");
+			if (container === null) throw new Error("Expected a main element");
+			hydrateRoot(container, React.createElement(client.App, props), {
+				onRecoverableError(error) {
+					recoverableErrors.push(error);
+				},
+			});
+			await new Promise((resolve) => setTimeout(resolve, 0));
+			await new Promise((resolve) => setImmediate(resolve));
+			expect(recoverableErrors).toEqual([]);
+			expect(container.innerHTML).toBe(clientHtml);
+		} finally {
+			for (const [key, descriptor] of previous) {
+				if (descriptor === undefined) delete (globalThis as Record<string, unknown>)[key];
+				else Object.defineProperty(globalThis, key, descriptor);
+			}
+			dom.window.close();
+		}
 	});
 
 	test("honors include, exclude, node_modules, and dictionary options", async () => {

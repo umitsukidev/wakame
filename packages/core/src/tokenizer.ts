@@ -15,10 +15,20 @@ export interface RuntimeTokenizerDescriptor {
 	options?: JsonValue;
 }
 
+/** JSON-safe context passed to runtime tokenizer factories. */
+export interface RuntimeTokenizerContext {
+	dictionary: readonly JsonValue[];
+}
+
 /** The synchronous interface used by generated runtime transforms. */
 export interface RuntimeTokenizer {
 	segment(text: string): readonly string[];
 }
+
+export type RuntimeTokenizerFactory<TOptions extends JsonValue = JsonValue> = (
+	options: TOptions | undefined,
+	context: RuntimeTokenizerContext,
+) => RuntimeTokenizer;
 
 /**
  * Tokenizer implementation supplied by a tokenizer package.

@@ -49,7 +49,7 @@ const tokenizer = createBudouxTokenizer({
 
 ### `@wakamejs/budoux/runtime`
 
-`createBudouxRuntimeTokenizer(options?)` は、ビルド時に生成されたモジュールから利用する同期 segmenter を返します。`segment(text)` は組み込み BudouX モデルのトークン配列を返します。
+`createBudouxRuntimeTokenizer(options?, context?)` は、ビルド時に生成されたモジュールから利用する同期 segmenter を返します。`segment(text)` は組み込み BudouX モデルのトークン配列を返します。`context.dictionary` が空でない場合は、非同期 tokenizer と同様にエラーになります。
 
 ## 対応環境
 

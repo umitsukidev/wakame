@@ -74,7 +74,7 @@ Wakame インスタンスを生成します。
 
 #### `RuntimeTokenizerDescriptor`
 
-`module`、`export`、JSON-safe な `options` で runtime module の factory を指定します。factory は `RuntimeTokenizer` を返し、`segment(text)` から同期的な文字列トークン配列を提供します。実行時にロードできない parser を注入した tokenizer では descriptor を省略してください。
+`module`、`export`、JSON-safe な `options` で runtime module の factory を指定します。factory は `(options, context)` を受け取り、`context.dictionary` には正規化済み辞書が JSON-safe な配列で渡されます。factory は `RuntimeTokenizer` を返し、`segment(text)` から同期的な文字列トークン配列を提供します。実行時にロードできない parser を注入した tokenizer では descriptor を省略してください。
 
 #### `Dictionary<TEntry>`
 

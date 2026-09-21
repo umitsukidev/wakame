@@ -46,6 +46,12 @@ describe("BudouX tokenizer", () => {
 		expect(tokens.join("")).toBe(text);
 	});
 
+	test("rejects non-empty runtime dictionaries", () => {
+		expect(() => createBudouxRuntimeTokenizer({}, { dictionary: ["固有語"] })).toThrow(
+			/does not support custom dictionary entries/,
+		);
+	});
+
 	test("supports parser injection", async () => {
 		const calls: string[] = [];
 		const parser = {

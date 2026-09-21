@@ -6,7 +6,7 @@ import {
 	type Parser,
 } from "budoux";
 
-import type { RuntimeTokenizer } from "@wakamejs/core";
+import type { RuntimeTokenizer, RuntimeTokenizerContext } from "@wakamejs/core";
 
 import type { BudouxLanguage } from "./budoux-tokenizer.js";
 
@@ -32,7 +32,15 @@ function loadParser(language: BudouxLanguage): Pick<Parser, "parse"> {
 }
 
 /** Create a synchronous BudouX segmenter for generated runtime JSX transforms. */
-export function createBudouxRuntimeTokenizer(options: BudouxRuntimeOptions = {}): RuntimeTokenizer {
+export function createBudouxRuntimeTokenizer(
+	options: BudouxRuntimeOptions = {},
+	context: RuntimeTokenizerContext = { dictionary: [] },
+): RuntimeTokenizer {
+	if (context.dictionary.length > 0) {
+		throw new Error(
+			"@wakamejs/budoux does not support custom dictionary entries; pass an empty dictionary.",
+		);
+	}
 	const language = options.language ?? "ja";
 	if (!isBudouxLanguage(language)) {
 		throw new Error(

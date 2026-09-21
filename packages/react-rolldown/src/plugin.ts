@@ -221,6 +221,28 @@ function isPortalCallee(callee: t.CallExpression["callee"]): boolean {
 	);
 }
 
+function collectDirectCandidates(
+	children: NodePath<t.JSXElement["children"][number]>[],
+	staticCandidates: StaticCandidate[],
+	dynamicCandidates: DynamicCandidate[],
+): void {
+	for (const childPath of children) {
+		if (childPath.isJSXText()) {
+			const semanticText = buildSemanticText(childPath.node);
+			if (semanticText) staticCandidates.push({ path: childPath, semanticText });
+			continue;
+		}
+		if (!childPath.isJSXExpressionContainer()) continue;
+		if (t.isJSXEmptyExpression(childPath.node.expression)) continue;
+		if (t.isStringLiteral(childPath.node.expression)) {
+			const semanticText = buildSemanticText(childPath.node);
+			if (semanticText) staticCandidates.push({ path: childPath, semanticText });
+			continue;
+		}
+		dynamicCandidates.push({ path: childPath });
+	}
+}
+
 function collectCandidates(
 	ast: t.File,
 	ignoreAttribute: string,
@@ -237,22 +259,10 @@ function collectCandidates(
 				path.skip();
 				return;
 			}
-
-			for (const childPath of path.get("children")) {
-				if (childPath.isJSXText()) {
-					const semanticText = buildSemanticText(childPath.node);
-					if (semanticText) staticCandidates.push({ path: childPath, semanticText });
-					continue;
-				}
-				if (!childPath.isJSXExpressionContainer()) continue;
-				if (t.isJSXEmptyExpression(childPath.node.expression)) continue;
-				if (t.isStringLiteral(childPath.node.expression)) {
-					const semanticText = buildSemanticText(childPath.node);
-					if (semanticText) staticCandidates.push({ path: childPath, semanticText });
-					continue;
-				}
-				dynamicCandidates.push({ path: childPath });
-			}
+			collectDirectCandidates(path.get("children"), staticCandidates, dynamicCandidates);
+		},
+		JSXFragment(path) {
+			collectDirectCandidates(path.get("children"), staticCandidates, dynamicCandidates);
 		},
 	});
 	return { staticCandidates, dynamicCandidates };
@@ -261,7 +271,14 @@ function collectCandidates(
 function createStaticReplacement(tokens: readonly string[]): t.JSXExpressionContainer | undefined {
 	const nonEmptyTokens = tokens.filter((token) => token.length > 0);
 	if (nonEmptyTokens.length < 2) return undefined;
-	return t.jsxExpressionContainer(t.stringLiteral(nonEmptyTokens.join(zeroWidthSpace)));
+	let text = "";
+	for (const token of nonEmptyTokens) {
+		if (text.length > 0 && !text.endsWith(zeroWidthSpace) && !token.startsWith(zeroWidthSpace)) {
+			text += zeroWidthSpace;
+		}
+		text += token;
+	}
+	return t.jsxExpressionContainer(t.stringLiteral(text));
 }
 
 function runtimeFactoryImport(descriptor: RuntimeTokenizerDescriptor): string {
@@ -275,12 +292,17 @@ function runtimeFactoryImport(descriptor: RuntimeTokenizerDescriptor): string {
 	return `import { ${descriptor.export} as __wakameFactory } from ${JSON.stringify(descriptor.module)};`;
 }
 
-function createRuntimeModule(descriptor: RuntimeTokenizerDescriptor): string {
+function createRuntimeModule(
+	descriptor: RuntimeTokenizerDescriptor,
+	dictionary: readonly string[],
+): string {
 	const options = descriptor.options === undefined ? "" : JSON.stringify(descriptor.options);
 	if (options === undefined) {
 		throw new Error("@wakamejs/react-rolldown runtime options must be JSON-serializable.");
 	}
-	const factoryCall = options === "" ? "__wakameFactory()" : `__wakameFactory(${options})`;
+	const factoryOptions = options === "" ? "undefined" : options;
+	const context = JSON.stringify({ dictionary });
+	const factoryCall = `__wakameFactory(${factoryOptions}, ${context})`;
 	return [
 		runtimeFactoryImport(descriptor),
 		`const __wakameSegmenter = ${factoryCall};`,
@@ -383,12 +405,14 @@ async function transformSource(
 
 /** Create an SSR-safe React transform plugin for Rolldown and Vite. */
 export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRolldownPlugin {
+	const dictionary = [...new Set(options.dictionary ?? [])];
 	const wakame = createWakame({
 		tokenizer: options.tokenizer,
-		dictionary: options.dictionary ?? [],
+		dictionary,
 	});
 	const runtime = options.tokenizer.runtime;
-	const runtimeModule = runtime === undefined ? undefined : createRuntimeModule(runtime);
+	const runtimeModule =
+		runtime === undefined ? undefined : createRuntimeModule(runtime, dictionary);
 	const ignoreAttribute = options.ignoreAttribute ?? "data-wakame-ignore";
 	const ignoredComponents = new Set(options.ignore ?? []);
 	const parserPlugins = options.parserPlugins ?? [];

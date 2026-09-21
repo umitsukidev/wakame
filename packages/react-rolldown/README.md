@@ -5,9 +5,11 @@ React の JSX をビルド時・実行時に解析し、日本語テキストを
 ## インストール
 
 ```bash
-pnpm add -D @wakamejs/react-rolldown @wakamejs/core @wakamejs/budoux
+pnpm add @wakamejs/core @wakamejs/budoux
+pnpm add -D @wakamejs/react-rolldown
 # または
-npm install -D @wakamejs/react-rolldown @wakamejs/core @wakamejs/budoux
+npm install @wakamejs/core @wakamejs/budoux
+npm install -D @wakamejs/react-rolldown
 ```
 
 トークナイザーの実装（[`@wakamejs/budoux`](../budoux) など）と Rolldown または Vite も必要です。
@@ -25,6 +27,20 @@ const tokenizer = createBudouxTokenizer({ language: "ja" });
 
 export default defineConfig({
     // Vite でも同じくトップレベル plugins に登録できます。
+    plugins: [wakameReactPlugin({ tokenizer })],
+});
+```
+
+Vite では次のように、他の wrapper plugin を作らずトップレベルの `plugins` に登録します。
+
+```typescript
+import { defineConfig } from "vite";
+import { createBudouxTokenizer } from "@wakamejs/budoux";
+import wakameReactPlugin from "@wakamejs/react-rolldown";
+
+const tokenizer = createBudouxTokenizer({ language: "ja" });
+
+export default defineConfig({
     plugins: [wakameReactPlugin({ tokenizer })],
 });
 ```
