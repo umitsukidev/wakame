@@ -70,6 +70,11 @@ Wakame インスタンスを生成します。
 トークナイザーパッケージが実装するインターフェースです。
 
 - `tokenize(text: string, dictionary: Dictionary<TEntry>): Promise<readonly TToken[]>`: 指定されたテキストと正規化済み辞書を受け取り、トークン配列を返します。
+- `runtime?: RuntimeTokenizerDescriptor`: 動的な UI テキストを同期処理できる runtime factory のシリアライズ可能な descriptor（任意）です。
+
+#### `RuntimeTokenizerDescriptor`
+
+`module`、`export`、JSON-safe な `options` で runtime module の factory を指定します。factory は `RuntimeTokenizer` を返し、`segment(text)` から同期的な文字列トークン配列を提供します。実行時にロードできない parser を注入した tokenizer では descriptor を省略してください。
 
 #### `Dictionary<TEntry>`
 
