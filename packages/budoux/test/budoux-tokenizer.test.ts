@@ -1,6 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { createBudouxTokenizer } from "../dist/index.js";
+import { createBudouxRuntimeTokenizer } from "../dist/runtime.js";
 
 const languageSamples = [
 	["ja", "これは日本語の文章です。"],
@@ -25,6 +26,24 @@ describe("BudouX tokenizer", () => {
 		const tokens = await createBudouxTokenizer().tokenize("これは日本語の文章です。", new Set());
 
 		expect(tokens).toEqual(["これは", "日本語の", "文章です。"]);
+	});
+
+	test("exposes a runtime descriptor for built-in language models", () => {
+		expect(createBudouxTokenizer({ language: "zh-hant" }).runtime).toEqual({
+			module: "@wakamejs/budoux/runtime",
+			export: "createBudouxRuntimeTokenizer",
+			options: { language: "zh-hant" },
+		});
+		expect(createBudouxTokenizer({ parser: { parse: (text) => [text] } }).runtime).toBeUndefined();
+	});
+
+	test("creates a synchronous runtime segmenter", () => {
+		const segmenter = createBudouxRuntimeTokenizer({ language: "ja" });
+		const text = "これは日本語の文章です。";
+		const tokens = segmenter.segment(text);
+
+		expect(tokens.length).toBeGreaterThan(1);
+		expect(tokens.join("")).toBe(text);
 	});
 
 	test("supports parser injection", async () => {

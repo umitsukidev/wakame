@@ -36,6 +36,8 @@ const tokenizer = createBudouxTokenizer({
 
 カスタム辞書は BudouX の parser API が受け付けないため、空でない辞書を渡すと明示的にエラーになります。
 
+組み込み言語モデルで作成した tokenizer には、React のビルド時変換などで利用できる `runtime` descriptor も付属します。`parser` を注入した tokenizer は実行時モジュールへシリアライズできないため、動的 JSX テキストのランタイム変換には利用できません。
+
 ## API
 
 ### `createBudouxTokenizer(options?)`
@@ -44,6 +46,10 @@ const tokenizer = createBudouxTokenizer({
 
 - `language`: `"ja" | "zh-hans" | "zh-hant" | "th"`。既定値は `"ja"`。
 - `parser`: `parse(text: string): string[]` を持つ BudouX parser。指定した場合は `language` を指定できません。
+
+### `@wakamejs/budoux/runtime`
+
+`createBudouxRuntimeTokenizer(options?)` は、ビルド時に生成されたモジュールから利用する同期 segmenter を返します。`segment(text)` は組み込み BudouX モデルのトークン配列を返します。
 
 ## 対応環境
 
