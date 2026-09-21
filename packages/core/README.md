@@ -1,6 +1,6 @@
 # @wakamejs/core
 
-Wakame のコアパッケージです。日本語テキストを意味的な単位へ分割し、自然な折り返し位置（`<wbr>` タグの挿入位置など）を決定するための基盤インターフェースとコア機能を提供します。
+Wakame のコアパッケージです。日本語テキストを意味的な単位へ分割し、自然な折り返し位置（ゼロ幅スペースの挿入位置など）を決定するための基盤インターフェースとコア機能を提供します。
 
 ## 特徴
 
@@ -70,6 +70,11 @@ Wakame インスタンスを生成します。
 トークナイザーパッケージが実装するインターフェースです。
 
 - `tokenize(text: string, dictionary: Dictionary<TEntry>): Promise<readonly TToken[]>`: 指定されたテキストと正規化済み辞書を受け取り、トークン配列を返します。
+- `runtime?: RuntimeTokenizerDescriptor`: 動的な UI テキストを同期処理できる runtime factory のシリアライズ可能な descriptor（任意）です。
+
+#### `RuntimeTokenizerDescriptor`
+
+`module`、`export`、JSON-safe な `options` で runtime module の factory を指定します。factory は `(options, context)` を受け取り、`context.dictionary` には正規化済み辞書が JSON-safe な配列で渡されます。factory は `RuntimeTokenizer` を返し、`segment(text)` から同期的な文字列トークン配列を提供します。実行時にロードできない parser を注入した tokenizer では descriptor を省略してください。
 
 #### `Dictionary<TEntry>`
 

@@ -1,7 +1,7 @@
 {
 	"name": "@wakamejs/react-rolldown",
 	"version": "0.1.1",
-	"description": "SSR-safe React Rolldown plugin for inserting semantic wbr elements with Wakame",
+	"description": "SSR-safe React Rolldown plugin for inserting semantic zero-width spaces with Wakame",
 	"license": "MIT",
 	"repository": {
 		"type": "git",
@@ -48,6 +48,7 @@
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
 		"rolldown": "^1.2.9",
+		"vite": "^8.3.0",
 		"vitest": "^5.0.1"
 	},
 	"peerDependencies": {

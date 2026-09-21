@@ -1,6 +1,6 @@
 # Wakame
 
-Wakame は、日本語テキストを意味的な単位（文節など）で分割し、自然な折り返し位置に `<wbr>` を挿入することで、Web サイトやアプリケーションにおける日本語の可読性を高めるツールキットです。
+Wakame は、日本語テキストを意味的な単位（文節など）で分割し、自然な折り返し位置に `<wbr>` やゼロ幅スペースを挿入することで、Web サイトやアプリケーションにおける日本語の可読性を高めるツールキットです。
 
 ## パッケージ
 
@@ -11,7 +11,7 @@ Wakame は、日本語テキストを意味的な単位（文節など）で分�
 - [`@wakamejs/sudachi`](./packages/sudachi): 形態素解析エンジン Sudachi を用いた高精度トークナイザー（辞書同梱）
 - [`@wakamejs/vite`](./packages/vite): HTML に `<wbr>` を自動挿入する Vite プラグイン
 - [`@wakamejs/astro`](./packages/astro): Astro サイト向けインテグレーション
-- [`@wakamejs/react-rolldown`](./packages/react-rolldown): SSR に安全な JSX 変換を行う Rolldown プラグイン
+- [`@wakamejs/react-rolldown`](./packages/react-rolldown): 静的・動的な JSX テキストへ SSR に安全なゼロ幅スペースを挿入する Rolldown/Vite プラグイン
 
 ## 開発
 

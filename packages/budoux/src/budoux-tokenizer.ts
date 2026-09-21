@@ -6,7 +6,7 @@ import {
 	type Parser,
 } from "budoux";
 
-import type { Dictionary, Tokenizer } from "@wakamejs/core";
+import type { Dictionary, RuntimeTokenizerDescriptor, Tokenizer } from "@wakamejs/core";
 
 export type BudouxLanguage = "ja" | "zh-hans" | "zh-hant" | "th";
 
@@ -70,11 +70,18 @@ export function createBudouxTokenizer(
 		);
 	}
 
-	return createTokenizer(loadParser(language));
+	return createTokenizer(loadParser(language), {
+		module: "@wakamejs/budoux/runtime",
+		export: "createBudouxRuntimeTokenizer",
+		options: { language },
+	});
 }
 
-function createTokenizer(parser: BudouxParser): Tokenizer<string, string> {
-	return {
+function createTokenizer(
+	parser: BudouxParser,
+	runtime?: RuntimeTokenizerDescriptor,
+): Tokenizer<string, string> {
+	const tokenizer: Tokenizer<string, string> = {
 		async tokenize(text: string, dictionary: Dictionary<string>): Promise<readonly string[]> {
 			if (dictionary.size > 0) {
 				throw new Error(
@@ -85,4 +92,6 @@ function createTokenizer(parser: BudouxParser): Tokenizer<string, string> {
 			return parser.parse(text);
 		},
 	};
+	if (runtime !== undefined) tokenizer.runtime = runtime;
+	return tokenizer;
 }
