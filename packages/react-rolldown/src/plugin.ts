@@ -72,10 +72,6 @@ interface ViteConfigOptions extends ViteEnvironmentOptions {
 	ssr?: ViteEnvironmentOptions;
 }
 
-interface ViteResolvedConfigOptions extends ViteConfigOptions {
-	environments?: Record<string, ViteEnvironmentOptions>;
-}
-
 const skipElements = new Set([
 	"area",
 	"base",
@@ -493,20 +489,6 @@ export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRol
 						const optimizedConfig = addRuntimeOptimizerInclude(config, runtimeOptimizerModule);
 						if (optimizedConfig.optimizeDeps !== undefined)
 							config.optimizeDeps = optimizedConfig.optimizeDeps;
-					},
-					configResolved(config: ViteResolvedConfigOptions) {
-						const dedupe = (environment: ViteEnvironmentOptions) => {
-							if (environment.optimizeDeps === undefined) return;
-							const optimizedEnvironment = addRuntimeOptimizerInclude(
-								environment,
-								runtimeOptimizerModule,
-							);
-							if (optimizedEnvironment.optimizeDeps !== undefined)
-								environment.optimizeDeps = optimizedEnvironment.optimizeDeps;
-						};
-						dedupe(config);
-						if (config.ssr !== undefined) dedupe(config.ssr);
-						for (const environment of Object.values(config.environments ?? {})) dedupe(environment);
 					},
 				};
 
