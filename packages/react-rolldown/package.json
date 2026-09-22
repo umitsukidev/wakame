@@ -1,6 +1,6 @@
 {
 	"name": "@wakamejs/react-rolldown",
-	"version": "0.2.0",
+	"version": "0.2.1",
 	"description": "SSR-safe React Rolldown plugin for inserting semantic zero-width spaces with Wakame",
 	"license": "MIT",
 	"repository": {
