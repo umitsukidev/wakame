@@ -60,6 +60,18 @@ const zeroWidthSpace = "\u200B";
 const runtimeRequest = "virtual:@wakamejs/react-rolldown/runtime";
 const runtimeId = `\0${runtimeRequest}`;
 
+interface ViteOptimizeDepsOptions {
+	include?: readonly string[];
+}
+
+interface ViteEnvironmentOptions {
+	optimizeDeps?: ViteOptimizeDepsOptions;
+}
+
+interface ViteConfigOptions extends ViteEnvironmentOptions {
+	ssr?: ViteEnvironmentOptions;
+}
+
 const skipElements = new Set([
 	"area",
 	"base",
@@ -327,6 +339,26 @@ function createRuntimeModule(
 	].join("\n");
 }
 
+function isBareModuleSpecifier(specifier: string): boolean {
+	return (
+		specifier.length > 0 && !/^(?:\.\.?[\\/]|[\\/#\0]|[A-Za-z][A-Za-z0-9+.-]*:)/.test(specifier)
+	);
+}
+
+function addRuntimeOptimizerInclude(
+	config: ViteEnvironmentOptions,
+	runtimeModule: string,
+): ViteEnvironmentOptions {
+	const include = [...new Set([...(config.optimizeDeps?.include ?? []), runtimeModule])];
+	return {
+		...config,
+		optimizeDeps: {
+			...config.optimizeDeps,
+			include,
+		},
+	};
+}
+
 async function transformSource(
 	code: string,
 	id: string,
@@ -413,14 +445,43 @@ export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRol
 	const runtime = options.tokenizer.runtime;
 	const runtimeModule =
 		runtime === undefined ? undefined : createRuntimeModule(runtime, dictionary);
+	const runtimeOptimizerModule =
+		runtime !== undefined && isBareModuleSpecifier(runtime.module) ? runtime.module : undefined;
 	const ignoreAttribute = options.ignoreAttribute ?? "data-wakame-ignore";
 	const ignoredComponents = new Set(options.ignore ?? []);
 	const parserPlugins = options.parserPlugins ?? [];
 	const filter = createTransformFilter(options);
 
+	// Vite 5 uses the root config hook, while newer Vite versions resolve each environment.
+	// Mutate environment configs in-place so Vite does not concatenate include arrays twice.
+	const viteHooks =
+		runtimeOptimizerModule === undefined
+			? {}
+			: {
+					config(config: ViteConfigOptions) {
+						const optimizedConfig = addRuntimeOptimizerInclude(config, runtimeOptimizerModule);
+						const ssrConfig = config.ssr;
+						if (optimizedConfig.optimizeDeps !== undefined)
+							config.optimizeDeps = optimizedConfig.optimizeDeps;
+						const optimizedSsrConfig = addRuntimeOptimizerInclude(
+							ssrConfig ?? {},
+							runtimeOptimizerModule,
+						);
+						config.ssr = { ...ssrConfig };
+						if (optimizedSsrConfig.optimizeDeps !== undefined)
+							config.ssr.optimizeDeps = optimizedSsrConfig.optimizeDeps;
+					},
+					configEnvironment(_name: string, config: ViteEnvironmentOptions) {
+						const optimizedConfig = addRuntimeOptimizerInclude(config, runtimeOptimizerModule);
+						if (optimizedConfig.optimizeDeps !== undefined)
+							config.optimizeDeps = optimizedConfig.optimizeDeps;
+					},
+				};
+
 	return {
 		name: "@wakamejs/react-rolldown",
 		enforce: "pre",
+		...viteHooks,
 		resolveId(source) {
 			if (source === runtimeRequest && runtimeModule !== undefined) return runtimeId;
 			return null;
