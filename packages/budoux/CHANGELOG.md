@@ -1,5 +1,11 @@
 # @wakamejs/budoux
 
+## 0.2.1
+
+### Patch Changes
+
+- 1c72375: Update dependencies.
+
 ## 0.2.0
 
 ### Minor Changes
