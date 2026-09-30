@@ -39,6 +39,7 @@ jobs:
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           install: false
+          cache: false
       - id: detect
         shell: bash
         env:
@@ -90,7 +91,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
@@ -128,17 +129,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            packages/sudachi/rust/target/
-          key: cargo-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-${{ hashFiles('packages/sudachi/rust/Cargo.lock') }}
-          restore-keys: |
-            cargo-${{ runner.os }}-${{ runner.arch }}-${{ matrix.target }}-
+          cache: false
       - working-directory: packages/sudachi
         run: >-
           pnpm exec napi build --platform --esm --release
@@ -175,7 +166,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
@@ -244,7 +235,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
@@ -270,7 +261,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
@@ -297,7 +288,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
@@ -324,7 +315,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
