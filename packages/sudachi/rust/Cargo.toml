@@ -9,7 +9,7 @@ edition = "2024"
 memmap2 = "0.9"
 napi = "3"
 napi-derive = "3"
-sudachi = { git = "https://github.com/WorksApplications/sudachi.rs.git", tag = "v0.6.11" }
+sudachi = { git = "https://github.com/WorksApplications/sudachi.rs.git", tag = "v0.7.0" }
 
 [build-dependencies]
 napi-build = "2.4"
