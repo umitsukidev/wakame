@@ -8,7 +8,7 @@ use napi_derive::napi;
 use std::{fs::File, sync::Arc};
 use sudachi::{
     analysis::Mode,
-    config::Config,
+    config::{Config, PathResolver},
     dic::{
         dictionary::JapaneseDictionary,
         storage::{Storage, SudachiDicData},
@@ -56,11 +56,10 @@ impl SudachiTokenizer {
                 "failed to map system dictionary at {system_dictionary_path}: {error}",
             ))
         })?;
-        let config = Config::minimal_at(".");
+        let config = Config::minimal_at(PathResolver::from_embedded());
         let storage = SudachiDicData::new(Storage::File(dictionary_map));
-        let dictionary =
-            JapaneseDictionary::from_cfg_storage_with_embedded_chardef(&config, storage)
-                .map_err(|error| Error::from_reason(error.to_string()))?;
+        let dictionary = JapaneseDictionary::from_cfg_storage(&config, storage)
+            .map_err(|error| Error::from_reason(error.to_string()))?;
 
         Ok(Self {
             dictionary: Arc::new(dictionary),

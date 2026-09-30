@@ -15,7 +15,7 @@ jobs:
       - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
-          cache: true
+          cache: false
       - run: pnpm -r run build
       - run: pnpm -r --if-present run test
       - run: pnpm exec oxfmt --check
