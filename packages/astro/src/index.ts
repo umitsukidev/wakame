@@ -27,8 +27,9 @@ export default function wakameIntegration(options: WakamePluginOptions): WakameI
 	return {
 		name: "@wakamejs/astro",
 		hooks: {
-			"astro:build:done": async ({ dir }) => {
+			"astro:build:done": async ({ dir, logger }) => {
 				await transformHtmlFiles(dir, wakame, shouldApplyWrapStyle);
+				logger.info("HTML transformation completed.");
 			},
 			"astro:server:setup": ({ server }) => {
 				server.middlewares.use((request, response, next) => {
