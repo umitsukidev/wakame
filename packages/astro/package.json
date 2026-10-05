@@ -1,6 +1,6 @@
 {
 	"name": "@wakamejs/astro",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Astro integration for inserting semantic wbr elements with Wakame",
 	"license": "MIT",
 	"repository": {
