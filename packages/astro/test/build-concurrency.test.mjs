@@ -11,7 +11,7 @@ const emptyTokenizer = { tokenize: async (text) => [text] };
 async function withOutputDirectory(run) {
 	const root = await mkdtemp(join(tmpdir(), "wakame-astro-test-"));
 	try {
-		await run(pathToFileURL(`${root}${sep}`));
+		return await run(pathToFileURL(`${root}${sep}`));
 	} finally {
 		await rm(root, { recursive: true, force: true });
 	}
@@ -31,7 +31,7 @@ function buildDone(integration, dir, messages = []) {
 	});
 }
 
-function delayedCharacterTokenizer(delayMs) {
+function characterTokenizer() {
 	let active = 0;
 	let maximumActive = 0;
 	let calls = 0;
@@ -42,7 +42,7 @@ function delayedCharacterTokenizer(delayMs) {
 				active++;
 				maximumActive = Math.max(maximumActive, active);
 				try {
-					await new Promise((resolve) => setTimeout(resolve, delayMs));
+					await Promise.resolve();
 					return Array.from(text);
 				} finally {
 					active--;
@@ -58,33 +58,74 @@ function delayedCharacterTokenizer(delayMs) {
 	};
 }
 
-await test("default concurrency overlaps files with one shared limit across nested directories", async () => {
-	await withOutputDirectory(async (dir) => {
-		const files = [
-			"root-one.html",
-			"root-two.html",
-			"nested/one.html",
-			"nested/deep/two.html",
-			"other/three.html",
-			"other/four.html",
-		];
-		for (const [index, relativePath] of files.entries()) {
-			await writeOutputFile(
-				dir,
-				relativePath,
-				`<html><body><p>日本語の文章${index}</p></body></html>`,
-			);
-		}
-
-		const tokenizer = delayedCharacterTokenizer(25);
-		const messages = [];
-		await buildDone(wakameIntegration({ tokenizer: tokenizer.tokenizer }), dir, messages);
-
-		assert.equal(tokenizer.calls, files.length);
-		assert.equal(tokenizer.maximumActive, 4);
-		assert.deepEqual(messages, ["HTML transformation completed."]);
+function barrierCharacterTokenizer(barrierSize) {
+	let active = 0;
+	let maximumActive = 0;
+	let calls = 0;
+	let releaseBarrier;
+	let timeout;
+	const barrier = new Promise((resolve, reject) => {
+		releaseBarrier = resolve;
+		timeout = setTimeout(() => reject(new Error("concurrency barrier timed out")), 1000);
 	});
-});
+	return {
+		tokenizer: {
+			async tokenize(text) {
+				calls++;
+				active++;
+				maximumActive = Math.max(maximumActive, active);
+				if (active === barrierSize) {
+					clearTimeout(timeout);
+					releaseBarrier();
+				}
+				try {
+					await barrier;
+					return Array.from(text);
+				} finally {
+					active--;
+				}
+			},
+		},
+		get calls() {
+			return calls;
+		},
+		get maximumActive() {
+			return maximumActive;
+		},
+	};
+}
+
+await test(
+	"default concurrency overlaps files with one shared limit across nested directories",
+	{ timeout: 2000 },
+	async () => {
+		await withOutputDirectory(async (dir) => {
+			const files = [
+				"root-one.html",
+				"root-two.html",
+				"nested/one.html",
+				"nested/deep/two.html",
+				"other/three.html",
+				"other/four.html",
+			];
+			for (const [index, relativePath] of files.entries()) {
+				await writeOutputFile(
+					dir,
+					relativePath,
+					`<html><body><p>日本語の文章${index}</p></body></html>`,
+				);
+			}
+
+			const tokenizer = barrierCharacterTokenizer(4);
+			const messages = [];
+			await buildDone(wakameIntegration({ tokenizer: tokenizer.tokenizer }), dir, messages);
+
+			assert.equal(tokenizer.calls, files.length);
+			assert.equal(tokenizer.maximumActive, 4);
+			assert.deepEqual(messages, ["HTML transformation completed."]);
+		});
+	},
+);
 
 await test("buildConcurrency 1 keeps HTML file processing serial", async () => {
 	await withOutputDirectory(async (dir) => {
@@ -92,7 +133,7 @@ await test("buildConcurrency 1 keeps HTML file processing serial", async () => {
 			await writeOutputFile(dir, relativePath, "<html><body><p>日本語</p></body></html>");
 		}
 
-		const tokenizer = delayedCharacterTokenizer(10);
+		const tokenizer = characterTokenizer();
 		await buildDone(
 			wakameIntegration({ tokenizer: tokenizer.tokenizer, buildConcurrency: 1 }),
 			dir,
@@ -138,6 +179,38 @@ await test("parallel output matches serial output and handles encoded paths and 
 	}
 
 	assert.equal(parallelOutput, serialOutput);
+});
+
+await test("parallel transformation preserves wbr insertion and wrapping styles", async () => {
+	const files = new Map([
+		["index.html", "<html><body><p>日本語の文章</p><p>別の段落</p></body></html>"],
+		["nested/guide.html", "<html><body><p>折<wbr>り返し</p></body></html>"],
+		["deep/path/page 日本語&.html", "<html><body><p>並列変換</p></body></html>"],
+	]);
+
+	const transformFiles = async (buildConcurrency) =>
+		withOutputDirectory(async (dir) => {
+			for (const [relativePath, contents] of files) {
+				await writeOutputFile(dir, relativePath, contents);
+			}
+			const tokenizer = characterTokenizer();
+			await buildDone(wakameIntegration({ tokenizer: tokenizer.tokenizer, buildConcurrency }), dir);
+
+			const outputs = new Map();
+			for (const relativePath of files.keys()) {
+				const output = await readFile(join(fileURLToPath(dir), relativePath), "utf8");
+				assert.match(output, /<wbr>/);
+				assert.match(output, /word-break: keep-all; overflow-wrap: anywhere;/);
+				outputs.set(relativePath, output);
+			}
+			return outputs;
+		});
+
+	const serialOutputs = await transformFiles(1);
+	const parallelOutputs = await transformFiles(3);
+	for (const [relativePath, output] of serialOutputs) {
+		assert.equal(parallelOutputs.get(relativePath), output);
+	}
 });
 
 await test("invalid buildConcurrency values fail when the integration is created", () => {

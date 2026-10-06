@@ -47,7 +47,7 @@ export async function transformHtmlFiles(
 			try {
 				await transformHtmlFile(next.value, wakame, shouldApplyWrapStyle);
 			} catch (error) {
-				failure = { error };
+				failure ??= { error };
 				return;
 			}
 		}
