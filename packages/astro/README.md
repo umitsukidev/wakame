@@ -51,13 +51,16 @@ export default defineConfig({
 
 Astro インテグレーションを生成します。
 
-#### オプション (`WakamePluginOptions`)
+#### オプション (`WakameIntegrationOptions`)
 
-| オプション       | 型                  | デフォルト値 | 説明                                                                                                            |
-| :--------------- | :------------------ | :----------- | :-------------------------------------------------------------------------------------------------------------- |
-| `tokenizer`      | `Tokenizer<string>` | **必須**     | テキスト分割を行うトークナイザー実装                                                                            |
-| `dictionary`     | `DictionaryInput`   | `undefined`  | トークナイザーに渡すカスタム辞書                                                                                |
-| `applyWrapStyle` | `boolean`           | `true`       | `true` の場合、変換対象要素に `word-break: keep-all; overflow-wrap: break-word;` をインラインスタイルとして付与 |
+| オプション         | 型                  | デフォルト値 | 説明                                                                                                            |
+| :----------------- | :------------------ | :----------- | :-------------------------------------------------------------------------------------------------------------- |
+| `tokenizer`        | `Tokenizer<string>` | **必須**     | テキスト分割を行うトークナイザー実装                                                                            |
+| `dictionary`       | `DictionaryInput`   | `undefined`  | トークナイザーに渡すカスタム辞書                                                                                |
+| `applyWrapStyle`   | `boolean`           | `true`       | `true` の場合、変換対象要素に `word-break: keep-all; overflow-wrap: break-word;` をインラインスタイルとして付与 |
+| `buildConcurrency` | `number`            | `4`          | ビルド時に同時変換する HTML ファイル数。`1` にすると逐次処理                                                    |
+
+Astro のビルド時は、複数の HTML ファイルを最大 `buildConcurrency` 件ずつ変換します。同じ tokenizer が複数ファイルから同時に呼び出されることがありますが、1 ファイル内の段落は順番に処理します。tokenizer が同期的に CPU 処理を行う場合、並列数を増やしても速度向上は限られます。
 
 ### 再エクスポート
 
