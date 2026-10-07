@@ -16,7 +16,7 @@ function createWakame(tokenize = (text) => [...text]) {
 	};
 }
 
-test("tokenizes text across inline elements while respecting excluded contexts", async () => {
+void test("tokenizes text across inline elements while respecting excluded contexts", async () => {
 	const { calls, wakame } = createWakame();
 	const output = await transformHtml(
 		"<p>日<b>本</b><nobr>語</nobr>です<br>次</p><pre>対象外</pre><svg><text>対象外</text></svg><template><p>対象外</p></template>",
@@ -30,7 +30,7 @@ test("tokenizes text across inline elements while respecting excluded contexts",
 	assert.match(output, /<template><p>対象外<\/p><\/template>/);
 });
 
-test("preserves or removes existing HTML wbr elements according to options", async () => {
+void test("preserves or removes existing HTML wbr elements according to options", async () => {
 	const tokenizeWholeParagraph = () => ["日本語"];
 	const preserved = await transformHtml(
 		"<p>日<wbr>本語</p>",
@@ -47,7 +47,7 @@ test("preserves or removes existing HTML wbr elements according to options", asy
 	assert.doesNotMatch(recomputed, /<wbr>/);
 });
 
-test("maps UTF-16 tokenizer boundaries around astral characters", async () => {
+void test("maps UTF-16 tokenizer boundaries around astral characters", async () => {
 	const { calls, wakame } = createWakame();
 	const output = await transformHtml("<p>𠮷野家😀</p>", wakame);
 
@@ -58,7 +58,7 @@ test("maps UTF-16 tokenizer boundaries around astral characters", async () => {
 	);
 });
 
-test("applies breaks safely across nested blocks and surrounding text", async () => {
+void test("applies breaks safely across nested blocks and surrounding text", async () => {
 	const { calls, wakame } = createWakame();
 	const output = await transformHtml(
 		"<div>日本<p>東京</p>京都<section>大阪</section>奈良</div>",
@@ -72,7 +72,7 @@ test("applies breaks safely across nested blocks and surrounding text", async ()
 	);
 });
 
-test("keeps forced zero-width breaks, style behavior, and style idempotence", async () => {
+void test("keeps forced zero-width breaks, style behavior, and style idempotence", async () => {
 	const { calls, wakame } = createWakame(() => ["日本​語"]);
 	const output = await transformHtml(
 		'<p style="color:red; word-break: keep-all; overflow-wrap: anywhere;">日本​語</p>',
@@ -84,7 +84,7 @@ test("keeps forced zero-width breaks, style behavior, and style idempotence", as
 	assert.doesNotMatch(output, /overflow-wrap: anywhere;[^"]*overflow-wrap/);
 });
 
-test("throws when tokenizer output cannot reconstruct paragraph text", async () => {
+void test("throws when tokenizer output cannot reconstruct paragraph text", async () => {
 	const { wakame } = createWakame(() => ["別のテキスト"]);
 
 	await assert.rejects(
@@ -93,7 +93,7 @@ test("throws when tokenizer output cannot reconstruct paragraph text", async () 
 	);
 });
 
-test("does not initialize the parser for empty HTML", async () => {
+void test("does not initialize the parser for empty HTML", async () => {
 	const { calls, wakame } = createWakame();
 
 	assert.equal(await transformHtml("", wakame), "");
