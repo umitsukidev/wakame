@@ -4,6 +4,7 @@ packages:
 allowBuilds:
   esbuild: true
   lefthook: true
+  wasm-pack: true
 
 update:
   changeset: true

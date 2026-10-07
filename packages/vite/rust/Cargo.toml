@@ -1,0 +1,17 @@
+#:schema https://www.schemastore.org/cargo.json
+
+[package]
+name = "wakame-vite-html-wasm"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+swc_common = "26.0.0"
+swc_html_ast = "26.0.0"
+swc_html_codegen = "27.0.0"
+swc_html_parser = "26.1.0"
+wasm-bindgen = "0.2.129"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+path = "src/lib.rs"

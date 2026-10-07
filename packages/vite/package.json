@@ -9,7 +9,8 @@
 		"directory": "packages/vite"
 	},
 	"files": [
-		"dist"
+		"dist",
+		"generated"
 	],
 	"type": "module",
 	"sideEffects": false,
@@ -26,7 +27,8 @@
 		"access": "public"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
+		"build:wasm": "wasm-pack build rust --target web --out-dir ../generated --out-name html_wasm --release --no-opt",
+		"build": "pnpm run build:wasm && tsc -p tsconfig.json",
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
@@ -34,7 +36,8 @@
 		"parse5": "^8.0.1"
 	},
 	"devDependencies": {
-		"vite": "^8.3.1"
+		"vite": "^8.3.1",
+		"wasm-pack": "^0.15.0"
 	},
 	"peerDependencies": {
 		"vite": "^7.0.0 || ^8.0.0"
