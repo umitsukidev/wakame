@@ -16,6 +16,7 @@ jobs:
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: false
+      - run: rustup target add wasm32-unknown-unknown
       - run: pnpm -r run build
       - run: pnpm -r --if-present run test
       - run: pnpm exec oxfmt --check

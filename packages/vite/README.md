@@ -6,9 +6,9 @@ Wakame を利用して HTML 内の日本語テキストに意味的な `<wbr>` �
 
 ## 特徴
 
-- **構文木解析による安全な HTML 変換**: [parse5](https://github.com/inikulin/parse5) を用いて HTML を解析し、テキストノードに対してのみ正確に `<wbr>` を挿入します。
+- **構文木解析による安全な HTML 変換**: [SWC HTML parser](https://github.com/swc-project/swc) を WebAssembly で実行し、テキストノードに対してのみ正確に `<wbr>` を挿入します。
 - **除外要素の自動スキップ**: `code`, `pre`, `script`, `style`, `textarea` など、改行を挿入すべきでない要素は自動的にスキップされます。
-- **CSS スタイルの自動適用**: 対象ブロック要素に `word-break: keep-all; overflow-wrap: break-word;` をインラインスタイルとして付与（オプションで無効化可能）。
+- **CSS スタイルの自動適用**: 対象ブロック要素に `word-break: keep-all; overflow-wrap: anywhere;` をインラインスタイルとして付与（オプションで無効化可能）。
 - **HTML 変換関数のエクスポート**: Vite プラグインとしてだけでなく、スタンドアロンの `transformHtml` 関数としても使用可能。
 
 ## インストール
@@ -67,7 +67,7 @@ const wakame = createWakame({ tokenizer });
 const inputHtml = "<h1>美味しいお茶を飲みました。</h1>";
 const outputHtml = await transformHtml(inputHtml, wakame, true);
 console.log(outputHtml);
-// => <h1 style="word-break: keep-all; overflow-wrap: break-word;">美味しい<wbr>お茶を<wbr>飲みました。</h1>
+// => <html><head></head><body><h1 style="word-break: keep-all; overflow-wrap: anywhere;">...</h1></body></html>
 ```
 
 ## API リファレンス
@@ -78,11 +78,11 @@ Vite の `transformIndexHtml`（order: "post"）フックで動作する Vite �
 
 #### オプション (`WakamePluginOptions`)
 
-| オプション       | 型                  | デフォルト値 | 説明                                                                                                            |
-| :--------------- | :------------------ | :----------- | :-------------------------------------------------------------------------------------------------------------- |
-| `tokenizer`      | `Tokenizer<string>` | **必須**     | テキスト分割を行うトークナイザー実装                                                                            |
-| `dictionary`     | `DictionaryInput`   | `undefined`  | トークナイザーに渡すカスタム辞書                                                                                |
-| `applyWrapStyle` | `boolean`           | `true`       | `true` の場合、変換対象要素に `word-break: keep-all; overflow-wrap: break-word;` をインラインスタイルとして付与 |
+| オプション       | 型                  | デフォルト値 | 説明                                                                                                          |
+| :--------------- | :------------------ | :----------- | :------------------------------------------------------------------------------------------------------------ |
+| `tokenizer`      | `Tokenizer<string>` | **必須**     | テキスト分割を行うトークナイザー実装                                                                          |
+| `dictionary`     | `DictionaryInput`   | `undefined`  | トークナイザーに渡すカスタム辞書                                                                              |
+| `applyWrapStyle` | `boolean`           | `true`       | `true` の場合、変換対象要素に `word-break: keep-all; overflow-wrap: anywhere;` をインラインスタイルとして付与 |
 
 ### `transformHtml(html, wakame, shouldApplyWrapStyle?, options?)`
 

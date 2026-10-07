@@ -29,11 +29,11 @@
 	"scripts": {
 		"build:wasm": "wasm-pack build rust --target web --out-dir ../generated --out-name html_wasm --release --no-opt",
 		"build": "pnpm run build:wasm && tsc -p tsconfig.json",
+		"test": "pnpm run build && node --test test/*.test.mjs",
 		"typecheck": "tsc --noEmit -p tsconfig.json"
 	},
 	"dependencies": {
-		"@wakamejs/core": "workspace:*",
-		"parse5": "^8.0.1"
+		"@wakamejs/core": "workspace:*"
 	},
 	"devDependencies": {
 		"vite": "^8.3.1",

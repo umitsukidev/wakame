@@ -262,6 +262,7 @@ jobs:
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: false
+      - run: rustup target add wasm32-unknown-unknown
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
@@ -289,6 +290,7 @@ jobs:
       - uses: pnpm/setup@703c52620218391530e48b9e8870d5c0082e1b9b # v2.1.0
         with:
           cache: false
+      - run: rustup target add wasm32-unknown-unknown
       - name: Configure npm authentication for the initial publish
         if: env.NPM_TOKEN != ''
         run: pnpm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"
