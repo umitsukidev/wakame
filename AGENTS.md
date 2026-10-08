@@ -5,6 +5,7 @@
 # TypeScript / JavaScript
 
 - 配列を反復するために `for (;;)` 形式のインデックスループを使わず、`for...of` などの反復構文を使ってください。
+- テストはVitestで記述・実行し、`describe`・`it`・`expect`を使ってください。`node:assert`や`node:test`からのimportは使わないでください。
 
 # Rust
 
