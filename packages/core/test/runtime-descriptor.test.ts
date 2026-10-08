@@ -1,4 +1,4 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import {
 	createWakame,
@@ -8,7 +8,7 @@ import {
 } from "../dist/index.js";
 
 describe("runtime tokenizer descriptors", () => {
-	test("accepts JSON-safe runtime metadata without affecting async tokenization", async () => {
+	it("accepts JSON-safe runtime metadata without affecting async tokenization", async () => {
 		const runtime: RuntimeTokenizerDescriptor = {
 			module: "@example/runtime-tokenizer",
 			export: "createTokenizer",
@@ -25,7 +25,7 @@ describe("runtime tokenizer descriptors", () => {
 		expect(await createWakame({ tokenizer }).tokenize("日本語")).toEqual(["日本語"]);
 	});
 
-	test("defines a runtime factory context for normalized dictionaries", () => {
+	it("defines a runtime factory context for normalized dictionaries", () => {
 		const factory: RuntimeTokenizerFactory<{ language: string }> = (options, context) => ({
 			segment(text) {
 				return options?.language === "ja" && context.dictionary.length === 1 ? [text] : [];

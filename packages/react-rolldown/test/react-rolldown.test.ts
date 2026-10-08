@@ -9,7 +9,7 @@ import { hydrateRoot } from "react-dom/client";
 import { renderToString } from "react-dom/server";
 import { rolldown } from "rolldown";
 import { build, createServer } from "vite";
-import { describe, expect, test } from "vitest";
+import { describe, expect, it } from "vitest";
 import wakameReactPlugin, { type ReactRolldownPluginOptions } from "../dist/index.js";
 
 type TestTokenizer = ReactRolldownPluginOptions["tokenizer"];
@@ -145,7 +145,7 @@ function requireResult(result: Awaited<ReturnType<typeof transform>>): Transform
 }
 
 describe("react-rolldown plugin", () => {
-	test("normalizes JSX whitespace and decodes entities through Babel builders", async () => {
+	it("normalizes JSX whitespace and decodes entities through Babel builders", async () => {
 		const { calls, tokenizer } = createTokenizer((text) =>
 			text === "こんにちは & 世界" ? ["こんにちは & ", "世界"] : [text],
 		);
@@ -162,7 +162,7 @@ describe("react-rolldown plugin", () => {
 		expect(result.code).toMatch(/\\u200B/);
 	});
 
-	test("transforms direct string literal JSX expressions", async () => {
+	it("transforms direct string literal JSX expressions", async () => {
 		const { tokenizer } = createTokenizer((text) =>
 			text === "こんにちは世界" ? ["こんにちは", "世界"] : [text],
 		);
@@ -175,7 +175,7 @@ describe("react-rolldown plugin", () => {
 		expect(result.code).toMatch(/\{"\\u3053\\u3093\\u306B\\u3061\\u306F\\u200B\\u4E16\\u754C"\}/);
 	});
 
-	test("parses TSX and returns a source map", async () => {
+	it("parses TSX and returns a source map", async () => {
 		const { tokenizer } = createTokenizer((text) =>
 			text === "こんにちは世界" ? ["こんにちは", "世界"] : [text],
 		);
@@ -191,7 +191,7 @@ describe("react-rolldown plugin", () => {
 		expect(result.code).toMatch(/\\u200B/);
 	});
 
-	test("ignores empty tokens when creating break opportunities", async () => {
+	it("ignores empty tokens when creating break opportunities", async () => {
 		const { tokenizer } = createTokenizer((text) =>
 			text === "日本語" ? ["", "日本", "語"] : [text],
 		);
@@ -203,7 +203,7 @@ describe("react-rolldown plugin", () => {
 		expect(result.code).not.toMatch(/<wbr\s*\/>/);
 	});
 
-	test("accepts additional Babel parser plugins for decorators", async () => {
+	it("accepts additional Babel parser plugins for decorators", async () => {
 		const { tokenizer } = createTokenizer((text) =>
 			text === "こんにちは世界" ? ["こんにちは", "世界"] : [text],
 		);
@@ -218,7 +218,7 @@ describe("react-rolldown plugin", () => {
 		expect(result.code).toMatch(/\\u200B/);
 	});
 
-	test("does not join text across inline JSX children or transform excluded content", async () => {
+	it("does not join text across inline JSX children or transform excluded content", async () => {
 		const { calls, tokenizer } = createRuntimeTokenizer((text) => [
 			text.slice(0, 1),
 			text.slice(1),
@@ -266,7 +266,7 @@ const view = <>
 		expect(calls.some(({ text }) => text === "本文")).toBe(true);
 	});
 
-	test("transforms custom component text and descendants", async () => {
+	it("transforms custom component text and descendants", async () => {
 		const { calls, tokenizer } = createTokenizer((text) => {
 			if (text === "直接の日本語") return ["直接の", "日本語"];
 			if (text === "静的な式") return ["静的な", "式"];
@@ -293,7 +293,7 @@ const view = <>
 		expect(calls.map(({ text }) => text)).toEqual(["直接の日本語", "静的な式", "日本語の見出し"]);
 	});
 
-	test("processes static and dynamic direct children of JSX fragments", async () => {
+	it("processes static and dynamic direct children of JSX fragments", async () => {
 		const { calls, tokenizer } = createRuntimeTokenizer((text) =>
 			text === "フラグメント静的" ? ["フラグメント", "静的"] : [text],
 		);
@@ -312,7 +312,7 @@ const view = <>
 		expect(result.code).toMatch(/_wakameRuntime\(value\)/);
 	});
 
-	test("does not duplicate existing static zero-width spaces", async () => {
+	it("does not duplicate existing static zero-width spaces", async () => {
 		const { tokenizer } = createTokenizer((text) =>
 			text === "日本\u200B語" ? ["日本", "\u200B語"] : [text],
 		);
@@ -326,7 +326,7 @@ const view = <>
 		expect(result.code).not.toContain("\\u200B\\u200B");
 	});
 
-	test("ignores configured identifier, member, and namespaced components", async () => {
+	it("ignores configured identifier, member, and namespaced components", async () => {
 		const { calls, tokenizer } = createTokenizer((text) => [text.slice(0, 1), text.slice(1)]);
 		const result = requireResult(
 			await transform(
@@ -351,7 +351,7 @@ const view = <>
 		expect(result.code).not.toContain("対象子孫");
 	});
 
-	test("wraps dynamic strings and arrays with the runtime helper", async () => {
+	it("wraps dynamic strings and arrays with the runtime helper", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-react-runtime-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
@@ -389,7 +389,7 @@ const view = <>
 		expect(html.match(/既に\u200B済/g)?.length).toBe(1);
 	});
 
-	test("keeps bare runtime modules compatible with direct Rolldown usage", async () => {
+	it("keeps bare runtime modules compatible with direct Rolldown usage", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(
 			join(tmpdir(), "wakame-rolldown-bare-runtime-"),
 		);
@@ -426,7 +426,7 @@ const view = <>
 		);
 	});
 
-	test("does not optimize URI, path, or virtual runtime specifiers", () => {
+	it("does not optimize URI, path, or virtual runtime specifiers", () => {
 		const nonBareModules = [
 			"/runtime",
 			"./runtime",
@@ -461,13 +461,13 @@ const view = <>
 		expect(config.optimizeDeps?.include).toEqual(["existing", "npm-package"]);
 	});
 
-	test("rejects dynamic JSX when the tokenizer has no runtime descriptor", async () => {
+	it("rejects dynamic JSX when the tokenizer has no runtime descriptor", async () => {
 		await expect(
 			transform("const view = <div>{value}</div>;", "/project/src/App.jsx"),
 		).rejects.toThrow(/does not provide a runtime descriptor/);
 	});
 
-	test("works as a top-level Vite plugin during dev SSR transforms", async () => {
+	it("works as a top-level Vite plugin during dev SSR transforms", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-vite-dev-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
@@ -493,7 +493,7 @@ const view = <>
 		}
 	});
 
-	test("preserves React hook dispatching in Vite dev SSR", async () => {
+	it("preserves React hook dispatching in Vite dev SSR", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-vite-hooks-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
@@ -524,7 +524,7 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		}
 	});
 
-	test("pre-includes bare runtime modules in every Vite environment", async () => {
+	it("pre-includes bare runtime modules in every Vite environment", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-vite-optimizer-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
@@ -585,7 +585,7 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		}
 	});
 
-	test("works as a top-level Vite plugin during production SSR builds", async () => {
+	it("works as a top-level Vite plugin during production SSR builds", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-vite-prod-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
@@ -625,7 +625,7 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		expect(html).toContain("本番\u200B日本語");
 	});
 
-	test("hydrates dynamic runtime text consistently between server and client", async () => {
+	it("hydrates dynamic runtime text consistently between server and client", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-react-dynamic-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
@@ -703,7 +703,7 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		}
 	});
 
-	test("honors include, exclude, node_modules, and dictionary options", async () => {
+	it("honors include, exclude, node_modules, and dictionary options", async () => {
 		const { calls, tokenizer } = createTokenizer((text) => [text.slice(0, 1), text.slice(1)]);
 		const options: TransformOptions = {
 			tokenizer,
@@ -730,7 +730,7 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		expect(calls[0]?.dictionary).toEqual(["固有語"]);
 	});
 
-	test("throws when tokenizer output cannot reconstruct text", async () => {
+	it("throws when tokenizer output cannot reconstruct text", async () => {
 		const { tokenizer } = createTokenizer(() => ["壊れた"]);
 
 		await expect(
@@ -738,7 +738,7 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		).rejects.toThrow(/does not reconstruct JSX text/);
 	});
 
-	test("bundles the same transformed component for server and client and hydrates without errors", async () => {
+	it("bundles the same transformed component for server and client and hydrates without errors", async () => {
 		using temporaryDirectory = mkdtempDisposableSync(join(tmpdir(), "wakame-react-"));
 		const directory = temporaryDirectory.path;
 		const nodeModules = join(directory, "node_modules");
