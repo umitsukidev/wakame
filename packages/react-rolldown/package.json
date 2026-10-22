@@ -33,7 +33,7 @@
 	"dependencies": {
 		"@babel/generator": "^7.29.8",
 		"@babel/parser": "^7.29.9",
-		"@babel/traverse": "^7.29.8",
+		"@babel/traverse": "^7.29.10",
 		"@babel/types": "^7.29.8",
 		"@rolldown/pluginutils": "^1.0.1",
 		"@wakamejs/core": "workspace:*"
@@ -44,12 +44,12 @@
 		"@types/jsdom": "^21.1.7",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
-		"jsdom": "^30.1.1",
-		"react": "^19.3.0",
-		"react-dom": "^19.3.0",
-		"rolldown": "^1.2.11",
-		"vite": "^8.3.1",
-		"vitest": "^5.0.2"
+		"jsdom": "^30.1.3",
+		"react": "^19.3.1",
+		"react-dom": "^19.3.1",
+		"rolldown": "^1.2.15",
+		"vite": "^8.3.5",
+		"vitest": "^5.0.5"
 	},
 	"peerDependencies": {
 		"rolldown": "^1.0.0"

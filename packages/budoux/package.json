@@ -40,7 +40,7 @@
 		"budoux": "^0.9.3"
 	},
 	"devDependencies": {
-		"vitest": "^5.0.2"
+		"vitest": "^5.0.5"
 	},
 	"engines": {
 		"node": ">=20"

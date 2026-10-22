@@ -35,9 +35,9 @@
 		"@wakamejs/vite": "workspace:*"
 	},
 	"devDependencies": {
-		"@types/node": "^24.19.0",
-		"astro": "^7.3.5",
-		"vitest": "^5.0.2"
+		"@types/node": "^24.19.2",
+		"astro": "^7.4.2",
+		"vitest": "^5.0.5"
 	},
 	"peerDependencies": {
 		"astro": "^6.0.0 || ^7.0.0"
