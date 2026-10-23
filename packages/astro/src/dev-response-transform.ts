@@ -178,6 +178,7 @@ export function installDevResponseTransform(
 			// Dev responses can be transformed again after an Astro reload.
 			const transformed = await transformHtml(source, wakame, shouldApplyWrapStyle, {
 				preserveExistingWbr: false,
+				bodyOnly: true,
 			});
 			const body = Buffer.from(transformed, "utf8");
 

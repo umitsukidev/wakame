@@ -1,5 +1,14 @@
 import { createWakame, type DictionaryInput, type Tokenizer, type Wakame } from "@wakamejs/core";
-import { defaultTreeAdapter, html, parse, serialize, type DefaultTreeAdapterMap } from "parse5";
+import {
+	defaultTreeAdapter,
+	html,
+	parse,
+	parseFragment,
+	serialize,
+	serializeOuter,
+	type DefaultTreeAdapterMap,
+} from "parse5";
+import { SAXParser, type StartTag } from "parse5-sax-parser";
 import type { Plugin } from "vite";
 
 type Element = DefaultTreeAdapterMap["element"];
@@ -373,6 +382,228 @@ export interface TransformHtmlOptions {
 	 * when the caller owns the generated HTML and wants to recompute all breaks.
 	 */
 	preserveExistingWbr?: boolean;
+	/**
+	 * Parse and serialize only the contents of an explicit `<body>` element.
+	 * Documents without an unambiguous explicit body use the full-document path.
+	 */
+	bodyOnly?: boolean;
+}
+
+interface BodyRange {
+	startTagStart: number;
+	startTagEnd: number;
+	endTagStart: number;
+	endTagEnd: number;
+	attrs: Element["attrs"];
+}
+
+const headElements = new Set([
+	"base",
+	"basefont",
+	"bgsound",
+	"link",
+	"meta",
+	"title",
+	"noscript",
+	"noframes",
+	"style",
+	"script",
+	"template",
+]);
+
+const boundaryContextElements = new Set(["template", "svg", "math", "noscript", "noframes"]);
+const foreignElements = new Set(["svg", "math"]);
+const rawTextElements = new Set([
+	"script",
+	"style",
+	"title",
+	"noscript",
+	"noframes",
+	"textarea",
+	"xmp",
+	"iframe",
+	"noembed",
+	"plaintext",
+]);
+
+function toTreeAttributes(startTag: StartTag): Element["attrs"] {
+	return startTag.attrs.map((attribute) => ({ ...attribute }));
+}
+
+/**
+ * Find a safe explicit body range without constructing a document tree. The
+ * SAX tokenizer handles comments and raw-text elements, while conservative
+ * structural checks reject cases where HTML parsing would create the body
+ * before the explicit body tag.
+ */
+function findBodyRange(source: string): BodyRange | undefined {
+	const parser = new SAXParser({ sourceCodeLocationInfo: true });
+	const boundaryContexts: string[] = [];
+	let rawTextElement: string | undefined;
+	let headClosed = false;
+	let bodyStarted = false;
+	let bodyEnded = false;
+	let range: BodyRange | undefined;
+	let unsafe = false;
+
+	parser.on("startTag", (token) => {
+		const insideIgnoredContext = boundaryContexts.length > 0;
+		if (!insideIgnoredContext && !bodyStarted) {
+			if (token.tagName === "body") {
+				const location = token.sourceCodeLocation;
+				if (!location || token.selfClosing) {
+					unsafe = true;
+					return;
+				}
+				bodyStarted = true;
+				range = {
+					startTagStart: location.startOffset,
+					startTagEnd: location.endOffset,
+					endTagStart: -1,
+					endTagEnd: -1,
+					attrs: toTreeAttributes(token),
+				};
+			} else if (
+				token.tagName === "html" ||
+				token.tagName === "head" ||
+				(!headClosed && headElements.has(token.tagName))
+			) {
+				// These start tags do not implicitly create a body while the parser
+				// is in its initial or head insertion modes.
+			} else {
+				unsafe = true;
+			}
+		} else if (!insideIgnoredContext && bodyEnded) {
+			unsafe = true;
+		} else if (!insideIgnoredContext && token.tagName === "body") {
+			unsafe = true;
+		}
+
+		if (boundaryContextElements.has(token.tagName)) {
+			const isForeign = boundaryContexts.some((name) => foreignElements.has(name));
+			const selfClosingForeignTag = isForeign && token.selfClosing;
+			if (!selfClosingForeignTag && token.tagName !== "svg" && token.tagName !== "math") {
+				boundaryContexts.push(token.tagName);
+			} else if (!token.selfClosing) {
+				boundaryContexts.push(token.tagName);
+			}
+		}
+
+		if (!rawTextElement && rawTextElements.has(token.tagName)) {
+			rawTextElement = token.tagName;
+		}
+	});
+
+	parser.on("text", ({ text }) => {
+		if (bodyEnded) {
+			if (/\S/.test(text)) unsafe = true;
+			return;
+		}
+		if (
+			!bodyStarted &&
+			!rawTextElement &&
+			!boundaryContexts.includes("template") &&
+			/\S/.test(text)
+		) {
+			unsafe = true;
+		}
+	});
+
+	parser.on("endTag", (token) => {
+		if (bodyEnded) {
+			if (token.tagName !== "html") unsafe = true;
+			return;
+		}
+		if (rawTextElement === token.tagName) rawTextElement = undefined;
+
+		if (boundaryContextElements.has(token.tagName)) {
+			const contextIndex = boundaryContexts.lastIndexOf(token.tagName);
+			if (contextIndex < 0 || contextIndex !== boundaryContexts.length - 1) {
+				unsafe = true;
+			} else {
+				boundaryContexts.pop();
+			}
+		}
+
+		if (boundaryContexts.length > 0) return;
+		if (token.tagName === "head" && !bodyStarted) {
+			headClosed = true;
+			return;
+		}
+		if (token.tagName !== "body") return;
+
+		const location = token.sourceCodeLocation;
+		if (!range || range.endTagStart >= 0 || !location) {
+			unsafe = true;
+			return;
+		}
+		range.endTagStart = location.startOffset;
+		range.endTagEnd = location.endOffset;
+		bodyEnded = true;
+	});
+
+	parser.on("doctype", () => {
+		if (bodyEnded) unsafe = true;
+	});
+
+	parser.end(source);
+	if (
+		unsafe ||
+		!range ||
+		range.endTagStart < range.startTagEnd ||
+		range.endTagEnd < range.endTagStart ||
+		range.endTagEnd > source.length
+	) {
+		return undefined;
+	}
+	return range;
+}
+
+async function transformBodyFragment(
+	source: string,
+	wakame: Wakame<string>,
+	shouldApplyWrapStyle: boolean,
+	options: TransformHtmlOptions,
+): Promise<string | undefined> {
+	const range = findBodyRange(source);
+	if (!range) return undefined;
+
+	const body = defaultTreeAdapter.createElement(
+		"body",
+		html.NS.HTML,
+		range.attrs.map((attribute) => ({ ...attribute })),
+	);
+	const fragment = parseFragment(body, source.slice(range.startTagEnd, range.endTagStart), {});
+	for (const child of fragment.childNodes) defaultTreeAdapter.appendChild(body, child);
+
+	if (options.preserveExistingWbr === false) removeExistingWbrs(body);
+	const paragraphs: Paragraph[] = [];
+	const styledElements = new Set<Element>();
+	visitElement(body, undefined, paragraphs);
+	for (const paragraph of paragraphs) {
+		await processParagraph(paragraph, wakame, shouldApplyWrapStyle, styledElements);
+	}
+
+	const bodyStartTag =
+		JSON.stringify(body.attrs) === JSON.stringify(range.attrs)
+			? source.slice(range.startTagStart, range.startTagEnd)
+			: (() => {
+					const bodyStartTagNode = defaultTreeAdapter.createElement(
+						"body",
+						html.NS.HTML,
+						body.attrs.map((attribute) => ({ ...attribute })),
+					);
+					const serialized = serializeOuter(bodyStartTagNode);
+					const closingTagStart = serialized.lastIndexOf("</body>");
+					return serialized.slice(0, closingTagStart);
+				})();
+	const bodyContents = serialize(body);
+	return (
+		source.slice(0, range.startTagStart) +
+		bodyStartTag +
+		bodyContents +
+		source.slice(range.endTagStart)
+	);
 }
 
 /** Process one HTML document with the same semantic contexts as BudouX. */
@@ -383,6 +614,10 @@ export async function transformHtml(
 	options: TransformHtmlOptions = {},
 ): Promise<string> {
 	if (html === "") return html;
+	if (options.bodyOnly) {
+		const transformed = await transformBodyFragment(html, wakame, shouldApplyWrapStyle, options);
+		if (transformed !== undefined) return transformed;
+	}
 	const document = parse(html);
 	if (options.preserveExistingWbr === false) removeExistingWbrs(document);
 	const paragraphs: Paragraph[] = [];

@@ -25,6 +25,7 @@ async function transformHtmlFile(
 	// Recompute breaks when Astro processes HTML produced by an earlier run.
 	const transformed = await transformHtml(source, wakame, shouldApplyWrapStyle, {
 		preserveExistingWbr: false,
+		bodyOnly: true,
 	});
 	if (transformed !== source) await writeFile(path, transformed, "utf8");
 }

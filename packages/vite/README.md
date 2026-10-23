@@ -95,6 +95,7 @@ Vite の `transformIndexHtml`（order: "post"）フックで動作する Vite �
 - `shouldApplyWrapStyle`: スタイルを付与するかどうか（デフォルト: `true`）
 - `options`: `TransformHtmlOptions`
     - `preserveExistingWbr`: 既存の `<wbr>` を保持するかどうか。`false` を指定すると既存の `<wbr>` を除去してから再計算します。
+    - `bodyOnly`: `true` の場合、明示的な `<body>` の中身だけを AST 化し、body の外側は原文のまま保持します。body の境界を安全に判定できない HTML は通常の全文解析にフォールバックします。
 
 ## 対応環境
 
