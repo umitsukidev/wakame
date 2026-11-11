@@ -31,10 +31,10 @@
 	},
 	"dependencies": {
 		"@wakamejs/core": "workspace:*",
-		"parse5": "^8.0.1"
+		"parse5": "^8.1.1"
 	},
 	"devDependencies": {
-		"vite": "^8.3.5"
+		"vite": "^8.3.7"
 	},
 	"peerDependencies": {
 		"vite": "^7.0.0 || ^8.0.0"

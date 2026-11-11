@@ -42,7 +42,7 @@
 		"@wakamejs/core": "workspace:*"
 	},
 	"devDependencies": {
-		"@napi-rs/cli": "^3.10.9",
+		"@napi-rs/cli": "^3.10.12",
 		"@types/node": "^24.19.2"
 	},
 	"napi": {
