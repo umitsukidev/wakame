@@ -37,10 +37,10 @@
 	},
 	"dependencies": {
 		"@wakamejs/core": "workspace:*",
-		"budoux": "^0.9.3"
+		"budoux": "^0.10.4"
 	},
 	"devDependencies": {
-		"vitest": "^5.1.0"
+		"vitest": "^5.1.1"
 	},
 	"engines": {
 		"node": ">=20"
