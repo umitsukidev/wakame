@@ -205,28 +205,33 @@ export function createPreprocessor<TEntry>(
 						case "Component": {
 							const specifier = imports.get(node.name);
 							if (
-								allowText &&
-								specifier &&
-								filename &&
-								resolveComponent &&
-								!node.attributes.some(
-									(attribute) =>
-										attribute.type === "SpreadAttribute" ||
-										(attribute.type === "Attribute" && attribute.name === "children"),
-								)
-							) {
-								const callee = await resolveComponent(specifier, filename);
-								if (
-									callee &&
-									(await supportsChildren(
-										callee.source,
-										callee.id,
-										node,
-										resolveComponent,
-										new Set([filename, callee.id]),
-									))
-								)
-									await visitFragment(node.fragment, true, false);
+								!allowText ||
+								!specifier ||
+								!filename ||
+								!resolveComponent ||
+								node.attributes.some((attribute) => attribute.type === "SpreadAttribute")
+							)
+								break;
+							const callee = await resolveComponent(specifier, filename);
+							if (!callee) break;
+							const hasAttribute = (name: string) =>
+								node.attributes.some((attribute) => "name" in attribute && attribute.name === name);
+							const supports = (name: string) =>
+								supportsSnippet(
+									callee.source,
+									callee.id,
+									node,
+									resolveComponent,
+									new Set([filename, callee.id]),
+									name,
+								);
+							if (!hasAttribute("children") && (await supports("children")))
+								await visitFragment(node.fragment, true, false);
+							for (const snippet of node.fragment.nodes) {
+								if (snippet.type !== "SnippetBlock" || snippet.parameters.length !== 0) continue;
+								const name = snippet.expression.name;
+								if (!hasAttribute(name) && (await supports(name)))
+									await visitFragment(snippet.body, true, false);
 							}
 							break;
 						}
@@ -277,13 +282,14 @@ export function createPreprocessor<TEntry>(
 }
 
 // The supported component shape is intentionally narrow: a $props destructure and
-// direct children() render sites whose complete HTML ancestry can be checked.
-async function supportsChildren(
+// direct snippet render sites whose complete HTML ancestry can be checked.
+async function supportsSnippet(
 	source: string,
 	filename: string,
 	caller: AST.Component,
 	resolveComponent: ComponentResolver,
 	ancestors: Set<string>,
+	propName: string,
 ): Promise<boolean> {
 	try {
 		const ast = parse(source, { modern: true });
@@ -334,17 +340,17 @@ async function supportsChildren(
 							local: value.left.name,
 							fallback: value.right.value,
 						});
-					} else if (property.key.name === "children" || property.key.name === "as") return false;
+					} else if (property.key.name === propName || property.key.name === "as") return false;
 				}
 			}
 		}
-		const children = bindings.get("children");
-		if (!children || !propsDeclaration) return false;
-		const childrenName = children.local;
-		const sensitiveNames = new Set([childrenName]);
+		const snippet = bindings.get(propName);
+		if (!snippet || !propsDeclaration) return false;
+		const snippetName = snippet.local;
+		const sensitiveNames = new Set([snippetName]);
 		const dynamicBindings = new Map<string, string | undefined>();
 		for (const [prop, binding] of bindings) {
-			if (prop === "children") continue;
+			if (prop === propName) continue;
 			const attribute = caller.attributes.find(
 				(item) => item.type === "Attribute" && item.name === prop,
 			);
@@ -367,18 +373,23 @@ async function supportsChildren(
 		async function visit(fragment: AST.Fragment, safe: boolean): Promise<void> {
 			for (const node of fragment.nodes) {
 				switch (node.type) {
-					case "RenderTag":
+					case "RenderTag": {
+						const expression =
+							node.expression.type === "ChainExpression"
+								? node.expression.expression
+								: node.expression;
 						if (
-							node.expression.type === "CallExpression" &&
-							node.expression.callee.type === "Identifier" &&
-							node.expression.callee.name === childrenName &&
-							node.expression.arguments.length === 0
+							expression.type === "CallExpression" &&
+							expression.callee.type === "Identifier" &&
+							expression.callee.name === snippetName &&
+							expression.arguments.length === 0
 						) {
 							found++;
-							allowedReferences.add(node.expression.callee);
+							allowedReferences.add(expression.callee);
 							if (!safe) unsafe = true;
 						}
 						break;
+					}
 					case "Component": {
 						let childSafe = false;
 						const specifier = imports.get(node.name);
@@ -388,17 +399,18 @@ async function supportsChildren(
 							!node.attributes.some(
 								(attribute) =>
 									attribute.type === "SpreadAttribute" ||
-									(attribute.type === "Attribute" && attribute.name === "children"),
+									("name" in attribute && attribute.name === "children"),
 							)
 						) {
 							const component = await resolveComponent(specifier, filename);
 							if (component && !ancestors.has(component.id)) {
-								childSafe = await supportsChildren(
+								childSafe = await supportsSnippet(
 									component.source,
 									component.id,
 									node,
 									resolveComponent,
 									new Set([...ancestors, component.id]),
+									"children",
 								);
 							}
 						}

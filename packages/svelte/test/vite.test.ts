@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
@@ -25,9 +25,11 @@ import type { Snippet } from "svelte";
 interface Props { as?: "div" | "section"; interactive?: boolean; children: Snippet }
 let { as = "div", interactive = false, children }: Props = $props();
 </script><svelte:element this={as} class:interactive>{@render children()}</svelte:element>`;
-const source = `<script>import Card from '@/Card.svelte'; import Banner from '@/Banner.svelte'; import Bad from '@/Bad.svelte'; import Unknown from '@/Unknown.svelte'; import Section from '@/Section.svelte'; import UnsafeSection from '@/UnsafeSection.svelte'; let tag = 'div'; let text = '日本語';</script>
+const source = `<script>import Card from '@/Card.svelte'; import Banner from '@/Banner.svelte'; import Bad from '@/Bad.svelte'; import Unknown from '@/Unknown.svelte'; import Section from '@/Section.svelte'; import UnsafeSection from '@/UnsafeSection.svelte'; import Header from '@/Header.svelte'; import HeaderReverse from '@/HeaderReverse.svelte'; let tag = 'div'; let text = '日本語';</script>
 <Card as="section"><p>日本語</p><Banner>文章</Banner></Card><Card><p>既定</p></Card><Card as={tag}>動的</Card>
-<Bad>危険</Bad><Unknown>不明</Unknown><pre><Card>除外</Card></pre><div contenteditable><Card>編集</Card></div><Card>{text}</Card><Card><p>BEFORE</p></Card><Section><p>入れ子</p></Section><UnsafeSection>危険</UnsafeSection>`;
+<Bad>危険</Bad><Unknown>不明</Unknown><pre><Card>除外</Card></pre><div contenteditable><Card>編集</Card></div><Card>{text}</Card><Card><p>BEFORE</p></Card><Section><p>入れ子</p></Section><UnsafeSection>危険</UnsafeSection>
+<Header>直下{#snippet description()}<p>説明文</p>{/snippet}{#snippet actions()}操作{/snippet}</Header>
+<HeaderReverse>本文{#snippet description()}説明{/snippet}</HeaderReverse>`;
 
 describe("wakame Vite plugin", () => {
 	it.each(["serve", "build"] as const)(
@@ -55,6 +57,14 @@ describe("wakame Vite plugin", () => {
 				writeFile(
 					path.join(dir, "UnsafeSection.svelte"),
 					`<script>import Card from './Card.svelte'; let { children } = $props();</script><Card as="pre">{@render children()}</Card>`,
+				),
+				writeFile(
+					path.join(dir, "Header.svelte"),
+					`<script>let { children, description, actions } = $props();</script><header><div>{@render description?.()}</div><pre>{@render children?.()}{@render actions?.()}</pre><div>{@render actions?.()}</div></header>`,
+				),
+				writeFile(
+					path.join(dir, "HeaderReverse.svelte"),
+					`<script>let { children, description } = $props();</script><div>{@render children()}</div><pre>{@render description?.()}</pre>`,
 				),
 				writeFile(path.join(dir, "Entry.svelte"), source),
 			]);
@@ -105,6 +115,12 @@ describe("wakame Vite plugin", () => {
 			expect(output).toContain("<p>前<wbr>処<wbr>理</p>");
 			expect(output).toContain("<Section><p>入<wbr>れ<wbr>子</p></Section>");
 			expect(output).toContain("<UnsafeSection>危険</UnsafeSection>");
+			expect(output).toContain(
+				"<Header>直下{#snippet description()}<p>説<wbr>明<wbr>文</p>{/snippet}{#snippet actions()}操作{/snippet}</Header>",
+			);
+			expect(output).toContain(
+				"<HeaderReverse>本<wbr>文{#snippet description()}説明{/snippet}</HeaderReverse>",
+			);
 			for (const unchanged of [
 				"<Card as={tag}>動的</Card>",
 				"<Bad>危険</Bad>",
@@ -281,5 +297,48 @@ describe("nested component resolution", () => {
 		expect(await handler.call(context, source, path.join(dir, "Entry.svelte"))).toBeUndefined();
 		expect(watched).toContain(a);
 		expect(watched).toContain(b);
+	});
+});
+
+describe("relative imports in nested components", () => {
+	it("resolves the same specifier against each importer", async () => {
+		const dir = await fixture();
+		const a = path.join(dir, "a");
+		const b = path.join(dir, "b");
+		await Promise.all([mkdir(a), mkdir(b)]);
+		const wrapper = `<script>import Card from './Card.svelte'; let { children } = $props();</script><Card>{@render children()}</Card>`;
+		await Promise.all([
+			writeFile(path.join(a, "Wrapper.svelte"), wrapper),
+			writeFile(path.join(b, "Wrapper.svelte"), wrapper),
+			writeFile(
+				path.join(a, "Card.svelte"),
+				`<script>let { children } = $props();</script><div>{@render children()}</div>`,
+			),
+			writeFile(
+				path.join(b, "Card.svelte"),
+				`<script>let { children } = $props();</script><pre>{@render children()}</pre>`,
+			),
+		]);
+		const watched: string[] = [];
+		const transform = wakame({ tokenizer }).transform;
+		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		const handler = transform.handler as unknown as (
+			this: object,
+			code: string,
+			id: string,
+		) => Promise<{ code: string } | undefined>;
+		const context = {
+			async resolve(specifier: string, importer: string) {
+				return { id: path.resolve(path.dirname(importer), specifier), external: false };
+			},
+			addWatchFile(id: string) {
+				watched.push(id);
+			},
+		};
+		const source = `<script>import A from './a/Wrapper.svelte'; import B from './b/Wrapper.svelte';</script><A>日本語</A><B>危険</B>`;
+		const result = await handler.call(context, source, path.join(dir, "Entry.svelte"));
+		expect(result?.code).toContain("<A>日<wbr>本<wbr>語</A><B>危険</B>");
+		expect(watched).toContain(path.join(a, "Card.svelte"));
+		expect(watched).toContain(path.join(b, "Card.svelte"));
 	});
 });
