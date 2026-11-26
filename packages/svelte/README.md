@@ -27,8 +27,6 @@ export default defineConfig({
 });
 ```
 
-SvelteKit 2.62 以降では `sveltekit({ preprocess: [wakamePreprocess({ tokenizer })] })` に渡します。既存の SvelteKit 2 プロジェクトで Vite 側に設定を移す場合は、`svelte.config.js` の設定も一緒に移します。SvelteKit 2.62 より前では `svelte.config.js` の `preprocess` に登録します。
-
 他のプリプロセッサーで TypeScript や CSS を変換している場合は、配列の後ろに `wakamePreprocess({ tokenizer })` を追加します。
 
 ### `wakamePreprocess({ tokenizer, dictionary? })`
