@@ -22,7 +22,10 @@ describe("wakamePreprocess", () => {
 		);
 		const sourcemap = result.map;
 		if (!sourcemap) throw new Error("Expected a preprocessing source map");
-		const map = JSON.parse(JSON.stringify(sourcemap)) as { sources: string[]; mappings: string };
+		const map = JSON.parse(JSON.stringify(sourcemap)) as {
+			sources: string[];
+			mappings: string;
+		};
 		expect(map.sources).toContain("Example.svelte");
 		expect(map.mappings).toBeTruthy();
 		for (const generate of ["client", "server"] as const) {

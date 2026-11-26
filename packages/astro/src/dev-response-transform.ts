@@ -135,7 +135,8 @@ export function installDevResponseTransform(
 		}
 
 		const encoding = typeof encodingOrCallback === "string" ? encodingOrCallback : "utf8";
-		const writeCallback = typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
+		const writeCallback =
+			typeof encodingOrCallback === "function" ? encodingOrCallback : callback;
 		const buffer = toBuffer(chunk, encoding);
 		if (buffer) chunks.push(buffer);
 		if (writeCallback) writeCallbacks.push(writeCallback);
@@ -190,7 +191,8 @@ export function installDevResponseTransform(
 				const adjustedHeaders = headers ? withoutBodyLengthHeaders(headers) : undefined;
 				if (adjustedHeaders) adjustedHeaders["content-length"] = body.byteLength;
 				if (statusMessage !== undefined) {
-					if (adjustedHeaders) originalWriteHead(statusCode, statusMessage, adjustedHeaders);
+					if (adjustedHeaders)
+						originalWriteHead(statusCode, statusMessage, adjustedHeaders);
 					else originalWriteHead(statusCode, statusMessage);
 				} else if (adjustedHeaders) {
 					originalWriteHead(statusCode, adjustedHeaders);

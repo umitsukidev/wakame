@@ -7,7 +7,10 @@ async function collectHtmlFilePaths(directory: URL, paths: string[]): Promise<vo
 	const entries = await readdir(directory, { withFileTypes: true });
 	for (const entry of entries) {
 		if (entry.isDirectory()) {
-			await collectHtmlFilePaths(new URL(`${encodeURIComponent(entry.name)}/`, directory), paths);
+			await collectHtmlFilePaths(
+				new URL(`${encodeURIComponent(entry.name)}/`, directory),
+				paths,
+			);
 			continue;
 		}
 		if (entry.isFile() && entry.name.endsWith(".html")) {

@@ -172,7 +172,9 @@ describe("react-rolldown plugin", () => {
 			}),
 		);
 
-		expect(result.code).toMatch(/\{"\\u3053\\u3093\\u306B\\u3061\\u306F\\u200B\\u4E16\\u754C"\}/);
+		expect(result.code).toMatch(
+			/\{"\\u3053\\u3093\\u306B\\u3061\\u306F\\u200B\\u4E16\\u754C"\}/,
+		);
 	});
 
 	it("parses TSX and returns a source map", async () => {
@@ -196,7 +198,9 @@ describe("react-rolldown plugin", () => {
 			text === "日本語" ? ["", "日本", "語"] : [text],
 		);
 		const result = requireResult(
-			await transform("const view = <div>日本語</div>;", "/project/src/App.jsx", { tokenizer }),
+			await transform("const view = <div>日本語</div>;", "/project/src/App.jsx", {
+				tokenizer,
+			}),
 		);
 
 		expect(result.code).toMatch(/\{"\\u65E5\\u672C\\u200B\\u8A9E"\}/);
@@ -290,7 +294,11 @@ const view = <>
 		expect(result.code).toMatch(
 			/<main><h1>\{"\\u65E5\\u672C\\u8A9E\\u200B\\u306E\\u898B\\u51FA\\u3057"\}<\/h1><\/main>/,
 		);
-		expect(calls.map(({ text }) => text)).toEqual(["直接の日本語", "静的な式", "日本語の見出し"]);
+		expect(calls.map(({ text }) => text)).toEqual([
+			"直接の日本語",
+			"静的な式",
+			"日本語の見出し",
+		]);
 	});
 
 	it("processes static and dynamic direct children of JSX fragments", async () => {
@@ -366,7 +374,10 @@ const view = <>
 		const build = await rolldown({
 			input: entry,
 			external: [/^react(?:\/|$)/],
-			plugins: [runtimeModulePlugin, wakameReactPlugin({ tokenizer, dictionary: ["固有語"] })],
+			plugins: [
+				runtimeModulePlugin,
+				wakameReactPlugin({ tokenizer, dictionary: ["固有語"] }),
+			],
 			transform: { jsx: "react-jsx" },
 		});
 		const generated = await build.generate({ format: "esm" });
@@ -572,8 +583,12 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 			const serverInclude = server.environments.ssr.config.optimizeDeps.include ?? [];
 			expect(clientInclude).toContain("test-wakame-runtime");
 			expect(serverInclude).toContain("test-wakame-runtime");
-			expect(clientInclude.filter((entry) => entry === "test-wakame-runtime")).toHaveLength(1);
-			expect(serverInclude.filter((entry) => entry === "test-wakame-runtime")).toHaveLength(1);
+			expect(clientInclude.filter((entry) => entry === "test-wakame-runtime")).toHaveLength(
+				1,
+			);
+			expect(serverInclude.filter((entry) => entry === "test-wakame-runtime")).toHaveLength(
+				1,
+			);
 			expect(clientInclude).toContain("existing-client-dependency");
 			expect(serverInclude).toContain("existing-server-dependency");
 			const module = (await server.ssrLoadModule("/App.jsx")) as {
@@ -648,7 +663,8 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 			});
 			const generated = await build.generate({ format: "esm" });
 			const output = generated.output.find((item) => item.type === "chunk");
-			if (output === undefined || output.type !== "chunk") throw new Error("Expected a chunk");
+			if (output === undefined || output.type !== "chunk")
+				throw new Error("Expected a chunk");
 			const outputPath = join(directory, `${platform}-dynamic.mjs`);
 			writeFileSync(outputPath, output.code);
 			return (await import(`${pathToFileURL(outputPath).href}?${platform}-dynamic`)) as {
@@ -712,7 +728,11 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 			exclude: "**/skip/**",
 		};
 
-		const included = await transform("const x = <div>対象</div>;", "/project/src/App.jsx", options);
+		const included = await transform(
+			"const x = <div>対象</div>;",
+			"/project/src/App.jsx",
+			options,
+		);
 		const excluded = await transform(
 			"const x = <div>対象</div>;",
 			"/project/skip/App.jsx",
@@ -809,7 +829,8 @@ export function App() { return <TextContext.Provider value="動的日本語"><Ch
 		try {
 			const container = dom.window.document.querySelector("main");
 			expect(container).not.toBeNull();
-			if (container === null || expectedDom === null) throw new Error("Expected a main element");
+			if (container === null || expectedDom === null)
+				throw new Error("Expected a main element");
 			hydrateRoot(container, React.createElement(client.module.App), {
 				onRecoverableError(error) {
 					recoverableErrors.push(error);

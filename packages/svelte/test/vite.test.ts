@@ -86,7 +86,9 @@ describe("wakame Vite plugin", () => {
 					capture,
 					svelte({
 						preprocess: {
-							markup: ({ content }) => ({ code: content.replace("BEFORE", "前処理") }),
+							markup: ({ content }) => ({
+								code: content.replace("BEFORE", "前処理"),
+							}),
 						},
 					}),
 				],
@@ -104,7 +106,9 @@ describe("wakame Vite plugin", () => {
 					build: {
 						write: false,
 						lib: { entry: path.join(dir, "Entry.svelte"), formats: ["es"] },
-						rollupOptions: { external: (id) => id === "svelte" || id.startsWith("svelte/") },
+						rollupOptions: {
+							external: (id) => id === "svelte" || id.startsWith("svelte/"),
+						},
 					},
 				});
 			}
@@ -142,7 +146,8 @@ describe("watching and maps", () => {
 		const watched: string[] = [];
 		const plugin = wakame({ tokenizer });
 		const transform = plugin.transform;
-		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		if (!transform || typeof transform === "function")
+			throw new Error("Expected transform hook");
 		const context = {
 			async resolve() {
 				return { id: target, external: false };
@@ -157,7 +162,9 @@ describe("watching and maps", () => {
 			id: string,
 		) => Promise<{ code: string; map: string } | undefined>;
 		const noChange = `<script>import Card from './Card.svelte'; let tag = 'div';</script><Card as={tag}>日本語</Card>`;
-		expect(await handler.call(context, noChange, path.join(dir, "Entry.svelte"))).toBeUndefined();
+		expect(
+			await handler.call(context, noChange, path.join(dir, "Entry.svelte")),
+		).toBeUndefined();
 		expect(watched).toEqual([target]);
 		const changed = `<script>import Card from './Card.svelte';</script><Card>日本語</Card>`;
 		const result = await handler.call(context, changed, path.join(dir, "Entry.svelte"));
@@ -192,7 +199,8 @@ describe("component safety", () => {
 		await writeFile(target, `<script>let { children } = $props();</script>${markup}`);
 		const plugin = wakame({ tokenizer });
 		const transform = plugin.transform;
-		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		if (!transform || typeof transform === "function")
+			throw new Error("Expected transform hook");
 		const handler = transform.handler as unknown as (
 			this: object,
 			code: string,
@@ -214,7 +222,8 @@ describe("component safety", () => {
 		await writeFile(target, card);
 		const plugin = wakame({ tokenizer });
 		const transform = plugin.transform;
-		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		if (!transform || typeof transform === "function")
+			throw new Error("Expected transform hook");
 		const handler = transform.handler as unknown as (
 			this: object,
 			code: string,
@@ -246,7 +255,8 @@ describe("TypeScript runtime references", () => {
 			);
 			const plugin = wakame({ tokenizer });
 			const transform = plugin.transform;
-			if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+			if (!transform || typeof transform === "function")
+				throw new Error("Expected transform hook");
 			const handler = transform.handler as unknown as (
 				this: object,
 				code: string,
@@ -259,7 +269,9 @@ describe("TypeScript runtime references", () => {
 				addWatchFile() {},
 			};
 			const source = `<script>import Card from './Card.svelte';</script><Card>日本語</Card>`;
-			expect(await handler.call(context, source, path.join(dir, "Entry.svelte"))).toBeUndefined();
+			expect(
+				await handler.call(context, source, path.join(dir, "Entry.svelte")),
+			).toBeUndefined();
 		},
 	);
 });
@@ -279,7 +291,8 @@ describe("nested component resolution", () => {
 		);
 		const watched: string[] = [];
 		const transform = wakame({ tokenizer }).transform;
-		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		if (!transform || typeof transform === "function")
+			throw new Error("Expected transform hook");
 		const handler = transform.handler as unknown as (
 			this: object,
 			code: string,
@@ -321,7 +334,8 @@ describe("relative imports in nested components", () => {
 		]);
 		const watched: string[] = [];
 		const transform = wakame({ tokenizer }).transform;
-		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		if (!transform || typeof transform === "function")
+			throw new Error("Expected transform hook");
 		const handler = transform.handler as unknown as (
 			this: object,
 			code: string,
