@@ -20,7 +20,11 @@ afterEach(async () => {
 	await Promise.all(fixtures.splice(0).map((dir) => rm(dir, { recursive: true, force: true })));
 });
 
-const card = `<script>let { as = 'div', children } = $props();</script><svelte:element this={as}>{@render children()}</svelte:element>`;
+const card = `<script lang="ts">
+import type { Snippet } from "svelte";
+interface Props { as?: "div" | "section"; interactive?: boolean; children: Snippet }
+let { as = "div", interactive = false, children }: Props = $props();
+</script><svelte:element this={as} class:interactive>{@render children()}</svelte:element>`;
 const source = `<script>import Card from '@/Card.svelte'; import Banner from '@/Banner.svelte'; import Bad from '@/Bad.svelte'; import Unknown from '@/Unknown.svelte'; let tag = 'div'; let text = '日本語';</script>
 <Card as="section"><p>日本語</p><Banner>文章</Banner></Card><Card><p>既定</p></Card><Card as={tag}>動的</Card>
 <Bad>危険</Bad><Unknown>不明</Unknown><pre><Card>除外</Card></pre><div contenteditable><Card>編集</Card></div><Card>{text}</Card><Card><p>BEFORE</p></Card>`;
@@ -199,4 +203,37 @@ describe("component safety", () => {
 		const source = `<script>import Card from './Card.svelte';</script>{#each [] as Card}<Card>日本語</Card>{/each}`;
 		expect(await handler.call(context, source, path.join(dir, "Entry.svelte"))).toBeUndefined();
 	});
+});
+
+describe("TypeScript runtime references", () => {
+	it.each([
+		`let { as = "div", children }: Props = $props(); as = ("pre" as string);`,
+		`let { as = "div", children }: Props = $props(); const alias = children as unknown;`,
+	])(
+		"still rejects unsafe value references inside TypeScript expressions",
+		async (declarations) => {
+			const dir = await fixture();
+			const target = path.join(dir, "Card.svelte");
+			await writeFile(
+				target,
+				`<script lang="ts">interface Props { as?: string; children: unknown } ${declarations}</script><svelte:element this={as}>{@render children()}</svelte:element>`,
+			);
+			const plugin = wakameSvelteVite({ tokenizer });
+			const transform = plugin.transform;
+			if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+			const handler = transform.handler as unknown as (
+				this: object,
+				code: string,
+				id: string,
+			) => Promise<unknown>;
+			const context = {
+				async resolve() {
+					return { id: target, external: false };
+				},
+				addWatchFile() {},
+			};
+			const source = `<script>import Card from './Card.svelte';</script><Card>日本語</Card>`;
+			expect(await handler.call(context, source, path.join(dir, "Entry.svelte"))).toBeUndefined();
+		},
+	);
 });

@@ -116,6 +116,14 @@ const safeContainers = new Set([
 	"u",
 	"var",
 ]);
+// Type declarations cannot shadow or mutate runtime bindings.
+const typeOnlyNodes = new Set([
+	"TSInterfaceDeclaration",
+	"TSTypeAliasDeclaration",
+	"TSTypeAnnotation",
+	"TSTypeParameterDeclaration",
+	"TSTypeParameterInstantiation",
+]);
 const japanese = /[\p{Script=Han}\p{Script=Hiragana}\p{Script=Katakana}]/u;
 
 function isWbr(node: AST.Fragment["nodes"][number] | undefined): boolean {
@@ -172,7 +180,11 @@ export function createPreprocessor<TEntry>(
 					return;
 				}
 				const node = value as Record<string, unknown>;
-				if (node.type === "ImportDeclaration") return;
+				if (
+					node.type === "ImportDeclaration" ||
+					(typeof node.type === "string" && typeOnlyNodes.has(node.type))
+				)
+					return;
 				if (node.type === "Identifier" && typeof node.name === "string") imports.delete(node.name);
 				for (const child of Object.values(node)) excludeAmbiguousImports(child);
 			}
@@ -434,6 +446,7 @@ function supportsChildren(source: string, caller: AST.Component): boolean {
 		function hasUnexpectedReference(value: unknown): boolean {
 			if (typeof value !== "object" || value === null || allowedReferences.has(value)) return false;
 			if (Array.isArray(value)) return value.some(hasUnexpectedReference);
+			if (isNode(value) && typeOnlyNodes.has(value.type)) return false;
 			if (
 				isNode(value) &&
 				value.type === "Identifier" &&
