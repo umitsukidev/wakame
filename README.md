@@ -11,7 +11,28 @@ Wakame は、日本語テキストを意味的な単位（文節など）で分�
 - [`@wakamejs/sudachi`](./packages/sudachi): 形態素解析エンジン Sudachi を用いた高精度トークナイザー（辞書同梱）
 - [`@wakamejs/vite`](./packages/vite): HTML に `<wbr>` を自動挿入する Vite プラグイン
 - [`@wakamejs/astro`](./packages/astro): Astro サイト向けインテグレーション
+- [`@wakamejs/svelte`](./packages/svelte): Svelte の静的な日本語テキストに `<wbr>` を挿入するプリプロセッサー
 - [`@wakamejs/react-rolldown`](./packages/react-rolldown): 静的・動的な JSX テキストへ SSR に安全なゼロ幅スペースを挿入する Rolldown/Vite プラグイン
+
+## Svelte での利用
+
+`@wakamejs/svelte` は Svelte 5 のプリプロセッサーです。既存の Wakame トークナイザーを渡し、Svelte の Vite プラグインに設定します。
+
+```ts
+// vite.config.ts
+import { defineConfig } from "vite";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
+import { wakamePreprocess } from "@wakamejs/svelte";
+import { createBudouxTokenizer } from "@wakamejs/budoux";
+
+export default defineConfig({
+    plugins: [svelte({ preprocess: [wakamePreprocess({ tokenizer: createBudouxTokenizer() })] })],
+});
+```
+
+SvelteKit 2.62 以降では `sveltekit({ preprocess: [wakamePreprocess({ tokenizer })] })` に設定できます。それ以前の SvelteKit では `svelte.config.js` の `preprocess` に設定してください。`dictionary` オプションも指定できます。
+
+テンプレート内の静的な日本語テキストをノード単位で分割します。式、属性、`{@html}`、SVG・MathML、`pre` や `contenteditable` などの特殊な領域は対象外です。`data-wakame-ignore` を持つ要素の子孫も除外します。HTML エンティティでソースとデコード後の位置が異なるテキストや、既存の `<wbr>` に隣接するテキストはそのまま残します。後者は繰り返し処理したときに `<wbr>` が増えないようにするためです。CSS やランタイム処理は追加しません。
 
 ## 開発
 

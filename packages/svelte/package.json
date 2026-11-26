@@ -1,0 +1,47 @@
+{
+	"name": "@wakamejs/svelte",
+	"version": "0.1.0-alpha.0",
+	"description": "Svelte preprocessor for inserting semantic wbr elements with Wakame",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/umitsukidev/wakame.git",
+		"directory": "packages/svelte"
+	},
+	"files": [
+		"dist"
+	],
+	"type": "module",
+	"sideEffects": false,
+	"main": "./dist/index.js",
+	"types": "./dist/index.d.ts",
+	"exports": {
+		".": {
+			"types": "./dist/index.d.ts",
+			"import": "./dist/index.js",
+			"default": "./dist/index.js"
+		}
+	},
+	"publishConfig": {
+		"access": "public"
+	},
+	"scripts": {
+		"build": "tsc -p tsconfig.json",
+		"test": "vitest run",
+		"typecheck": "tsc --noEmit -p tsconfig.json"
+	},
+	"dependencies": {
+		"@wakamejs/core": "workspace:*",
+		"magic-string": "^0.30.0"
+	},
+	"devDependencies": {
+		"svelte": "^5.0.0",
+		"vitest": "^5.0.2"
+	},
+	"peerDependencies": {
+		"svelte": "^5.0.0"
+	},
+	"engines": {
+		"node": ">=20"
+	}
+}
