@@ -1,6 +1,6 @@
-import generateModule from "@babel/generator";
+import generate from "@babel/generator";
 import { parse, type ParserPlugin } from "@babel/parser";
-import traverseModule, { type NodePath } from "@babel/traverse";
+import traverse, { type NodePath } from "@babel/traverse";
 import * as t from "@babel/types";
 import {
 	and,
@@ -19,13 +19,6 @@ import {
 } from "@wakamejs/core";
 import type { Plugin, SourceMapInput } from "rolldown";
 
-const generate = ((
-	generateModule as unknown as { default?: typeof import("@babel/generator").default }
-).default ?? generateModule) as unknown as typeof import("@babel/generator").default;
-const traverse = ((
-	traverseModule as unknown as { default?: typeof import("@babel/traverse").default }
-).default ?? traverseModule) as unknown as typeof import("@babel/traverse").default;
-
 export type ReactRolldownFilterPattern = string | RegExp | readonly (string | RegExp)[];
 
 export interface ReactRolldownPluginOptions {
@@ -38,7 +31,7 @@ export interface ReactRolldownPluginOptions {
 	parserPlugins?: readonly ParserPlugin[];
 }
 
-export type ReactRolldownPlugin = Plugin & { enforce: "pre" };
+export type ReactRolldownPlugin = ReturnType<typeof wakameReactPlugin>;
 
 interface StaticCandidate {
 	path: NodePath<t.JSXText | t.JSXExpressionContainer>;
@@ -211,7 +204,9 @@ function shouldSkipSubtree(
 	const openingName = element.openingElement.name;
 	const name = elementName(element.openingElement);
 	if (ignoredComponents.has(name)) return true;
-	return t.isJSXIdentifier(openingName) && (skipElements.has(name) || restrictedElements.has(name));
+	return (
+		t.isJSXIdentifier(openingName) && (skipElements.has(name) || restrictedElements.has(name))
+	);
 }
 
 function buildSemanticText(node: t.JSXText | t.JSXExpressionContainer): string | undefined {
@@ -285,7 +280,11 @@ function createStaticReplacement(tokens: readonly string[]): t.JSXExpressionCont
 	if (nonEmptyTokens.length < 2) return undefined;
 	let text = "";
 	for (const token of nonEmptyTokens) {
-		if (text.length > 0 && !text.endsWith(zeroWidthSpace) && !token.startsWith(zeroWidthSpace)) {
+		if (
+			text.length > 0 &&
+			!text.endsWith(zeroWidthSpace) &&
+			!token.startsWith(zeroWidthSpace)
+		) {
 			text += zeroWidthSpace;
 		}
 		text += token;
@@ -390,8 +389,10 @@ async function transformSource(
 		);
 	}
 
-	const transformed: Array<{ candidate: StaticCandidate; replacement: t.JSXExpressionContainer }> =
-		[];
+	const transformed: Array<{
+		candidate: StaticCandidate;
+		replacement: t.JSXExpressionContainer;
+	}> = [];
 	for (const candidate of staticCandidates) {
 		const tokens = await wakame.tokenize(candidate.semanticText);
 		const restored = tokens.join("");
@@ -424,19 +425,38 @@ async function transformSource(
 	}
 
 	transformed.sort(
-		(left, right) => (right.candidate.path.node.start ?? 0) - (left.candidate.path.node.start ?? 0),
+		(left, right) =>
+			(right.candidate.path.node.start ?? 0) - (left.candidate.path.node.start ?? 0),
 	);
 	for (const { candidate, replacement } of transformed) {
 		candidate.path.replaceWith(replacement);
 	}
 	if (transformed.length === 0 && dynamicCandidates.length === 0) return null;
 
-	const generated = generate(ast, { sourceMaps: true, sourceFileName: id }, code);
-	return { code: generated.code, map: generated.map };
+	const generated = generate(
+		ast,
+		{ sourceMaps: true, sourceFileName: id, jsescOption: { minimal: false } },
+		code,
+	);
+	const map = generated.map;
+	return {
+		code: generated.code,
+		map:
+			map === null
+				? null
+				: {
+						...map,
+						names: [...map.names],
+						sources: [...map.sources],
+						sourcesContent:
+							map.sourcesContent === undefined ? undefined : [...map.sourcesContent],
+						ignoreList: map.ignoreList === undefined ? undefined : [...map.ignoreList],
+					},
+	};
 }
 
 /** Create an SSR-safe React transform plugin for Rolldown and Vite. */
-export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRolldownPlugin {
+export function wakameReactPlugin(options: ReactRolldownPluginOptions) {
 	const dictionary = [...new Set(options.dictionary ?? [])];
 	const wakame = createWakame({
 		tokenizer: options.tokenizer,
@@ -459,7 +479,10 @@ export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRol
 			? {}
 			: {
 					config(config: ViteConfigOptions) {
-						const optimizedConfig = addRuntimeOptimizerInclude(config, runtimeOptimizerModule);
+						const optimizedConfig = addRuntimeOptimizerInclude(
+							config,
+							runtimeOptimizerModule,
+						);
 						const ssrConfig = config.ssr;
 						if (optimizedConfig.optimizeDeps !== undefined)
 							config.optimizeDeps = optimizedConfig.optimizeDeps;
@@ -472,7 +495,10 @@ export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRol
 							config.ssr.optimizeDeps = optimizedSsrConfig.optimizeDeps;
 					},
 					configEnvironment(_name: string, config: ViteEnvironmentOptions) {
-						const optimizedConfig = addRuntimeOptimizerInclude(config, runtimeOptimizerModule);
+						const optimizedConfig = addRuntimeOptimizerInclude(
+							config,
+							runtimeOptimizerModule,
+						);
 						if (optimizedConfig.optimizeDeps !== undefined)
 							config.optimizeDeps = optimizedConfig.optimizeDeps;
 					},
@@ -506,7 +532,7 @@ export function wakameReactPlugin(options: ReactRolldownPluginOptions): ReactRol
 				);
 			},
 		},
-	} as ReactRolldownPlugin;
+	} satisfies Plugin & { enforce: "pre" };
 }
 
 export default wakameReactPlugin;

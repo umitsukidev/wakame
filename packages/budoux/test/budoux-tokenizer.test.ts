@@ -23,7 +23,10 @@ describe("BudouX tokenizer", () => {
 	);
 
 	it("uses Japanese as the default language", async () => {
-		const tokens = await createBudouxTokenizer().tokenize("これは日本語の文章です。", new Set());
+		const tokens = await createBudouxTokenizer().tokenize(
+			"これは日本語の文章です。",
+			new Set(),
+		);
 
 		expect(tokens).toEqual(["これは", "日本語の", "文章です。"]);
 	});
@@ -34,7 +37,9 @@ describe("BudouX tokenizer", () => {
 			export: "createBudouxRuntimeTokenizer",
 			options: { language: "zh-hant" },
 		});
-		expect(createBudouxTokenizer({ parser: { parse: (text) => [text] } }).runtime).toBeUndefined();
+		expect(
+			createBudouxTokenizer({ parser: { parse: (text) => [text] } }).runtime,
+		).toBeUndefined();
 	});
 
 	it("creates a synchronous runtime segmenter", () => {
@@ -62,7 +67,10 @@ describe("BudouX tokenizer", () => {
 		};
 		const tokenizer = createBudouxTokenizer({ parser });
 
-		expect(await tokenizer.tokenize("保存する文字列", new Set())).toEqual(["保存", "する文字列"]);
+		expect(await tokenizer.tokenize("保存する文字列", new Set())).toEqual([
+			"保存",
+			"する文字列",
+		]);
 		expect(calls).toEqual(["保存する文字列"]);
 	});
 

@@ -10,14 +10,18 @@ export default function wakame<TEntry = string>(options: WakamePreprocessOptions
 		transform: {
 			async handler(code, id) {
 				if (!id.endsWith(".svelte")) return;
-				const resolved = new Map<string, Promise<{ id: string; source: string } | undefined>>();
+				const resolved = new Map<
+					string,
+					Promise<{ id: string; source: string } | undefined>
+				>();
 				const processor = createPreprocessor(options, (specifier, importer) => {
 					const key = JSON.stringify([importer, specifier]);
 					let pending = resolved.get(key);
 					if (!pending) {
 						pending = (async () => {
 							const result = await this.resolve(specifier, importer);
-							if (!result || result.external || !result.id.endsWith(".svelte")) return;
+							if (!result || result.external || !result.id.endsWith(".svelte"))
+								return;
 							this.addWatchFile(result.id);
 							try {
 								return { id: result.id, source: await readFile(result.id, "utf8") };

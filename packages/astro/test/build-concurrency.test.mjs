@@ -118,7 +118,11 @@ describe("Astro build concurrency", () => {
 
 				const tokenizer = barrierCharacterTokenizer(4);
 				const messages = [];
-				await buildDone(wakameIntegration({ tokenizer: tokenizer.tokenizer }), dir, messages);
+				await buildDone(
+					wakameIntegration({ tokenizer: tokenizer.tokenizer }),
+					dir,
+					messages,
+				);
 
 				expect(tokenizer.calls).toBe(files.length);
 				expect(tokenizer.maximumActive).toBe(4);
@@ -218,7 +222,14 @@ describe("Astro build concurrency", () => {
 
 	it("invalid buildConcurrency values fail when the integration is created", () => {
 		const message = "buildConcurrency must be a positive safe integer";
-		for (const buildConcurrency of [0, -1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53]) {
+		for (const buildConcurrency of [
+			0,
+			-1,
+			1.5,
+			Number.NaN,
+			Number.POSITIVE_INFINITY,
+			2 ** 53,
+		]) {
 			const createIntegration = () =>
 				wakameIntegration({ tokenizer: emptyTokenizer, buildConcurrency });
 

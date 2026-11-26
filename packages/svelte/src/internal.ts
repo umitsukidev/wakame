@@ -161,7 +161,10 @@ export function createPreprocessor<TEntry>(
 	return {
 		name: "wakame",
 		async markup({ content, filename }) {
-			const ast = parse(content, { modern: true, ...(filename === undefined ? {} : { filename }) });
+			const ast = parse(content, {
+				modern: true,
+				...(filename === undefined ? {} : { filename }),
+			});
 			if (ast.options?.namespace && ast.options.namespace !== "html") return;
 			const output = new MagicString(content);
 			const imports = componentImports(ast);
@@ -181,7 +184,10 @@ export function createPreprocessor<TEntry>(
 					const before = node.data.charCodeAt(offset - 1);
 					const after = node.data.charCodeAt(offset);
 					if (
-						(before >= 0xd800 && before <= 0xdbff && after >= 0xdc00 && after <= 0xdfff) ||
+						(before >= 0xd800 &&
+							before <= 0xdbff &&
+							after >= 0xdc00 &&
+							after <= 0xdfff) ||
 						/\s/u.test(node.data[offset - 1]!) ||
 						/\s/u.test(node.data[offset]!)
 					)
@@ -209,13 +215,17 @@ export function createPreprocessor<TEntry>(
 								!specifier ||
 								!filename ||
 								!resolveComponent ||
-								node.attributes.some((attribute) => attribute.type === "SpreadAttribute")
+								node.attributes.some(
+									(attribute) => attribute.type === "SpreadAttribute",
+								)
 							)
 								break;
 							const callee = await resolveComponent(specifier, filename);
 							if (!callee) break;
 							const hasAttribute = (name: string) =>
-								node.attributes.some((attribute) => "name" in attribute && attribute.name === name);
+								node.attributes.some(
+									(attribute) => "name" in attribute && attribute.name === name,
+								);
 							const supports = (name: string) =>
 								supportsSnippet(
 									callee.source,
@@ -228,7 +238,11 @@ export function createPreprocessor<TEntry>(
 							if (!hasAttribute("children") && (await supports("children")))
 								await visitFragment(node.fragment, true, false);
 							for (const snippet of node.fragment.nodes) {
-								if (snippet.type !== "SnippetBlock" || snippet.parameters.length !== 0) continue;
+								if (
+									snippet.type !== "SnippetBlock" ||
+									snippet.parameters.length !== 0
+								)
+									continue;
 								const name = snippet.expression.name;
 								if (!hasAttribute(name) && (await supports(name)))
 									await visitFragment(snippet.body, true, false);
@@ -245,22 +259,27 @@ export function createPreprocessor<TEntry>(
 							break;
 						case "IfBlock":
 							await visitFragment(node.consequent, allowText, allowSnippets);
-							if (node.alternate) await visitFragment(node.alternate, allowText, allowSnippets);
+							if (node.alternate)
+								await visitFragment(node.alternate, allowText, allowSnippets);
 							break;
 						case "EachBlock":
 							await visitFragment(node.body, allowText, allowSnippets);
-							if (node.fallback) await visitFragment(node.fallback, allowText, allowSnippets);
+							if (node.fallback)
+								await visitFragment(node.fallback, allowText, allowSnippets);
 							break;
 						case "AwaitBlock":
-							if (node.pending) await visitFragment(node.pending, allowText, allowSnippets);
+							if (node.pending)
+								await visitFragment(node.pending, allowText, allowSnippets);
 							if (node.then) await visitFragment(node.then, allowText, allowSnippets);
-							if (node.catch) await visitFragment(node.catch, allowText, allowSnippets);
+							if (node.catch)
+								await visitFragment(node.catch, allowText, allowSnippets);
 							break;
 						case "KeyBlock":
 							await visitFragment(node.fragment, allowText, allowSnippets);
 							break;
 						case "SnippetBlock":
-							if (allowSnippets) await visitFragment(node.body, allowText, allowSnippets);
+							if (allowSnippets)
+								await visitFragment(node.body, allowText, allowSnippets);
 							break;
 					}
 					previous = node;
@@ -314,7 +333,10 @@ async function supportsSnippet(
 				if (propsDeclaration || statement.declarations.length !== 1) return false;
 				propsDeclaration = declaration as unknown as Node;
 				for (const property of declaration.id.properties) {
-					if (property.type === "RestElement" && property.argument.type === "Identifier") {
+					if (
+						property.type === "RestElement" &&
+						property.argument.type === "Identifier"
+					) {
 						allowedReferences.add(property.argument);
 						continue;
 					}
@@ -329,7 +351,8 @@ async function supportsSnippet(
 					if (value.type === "Identifier") allowedReferences.add(value);
 					else if (value.type === "AssignmentPattern" && value.left.type === "Identifier")
 						allowedReferences.add(value.left);
-					if (value.type === "Identifier") bindings.set(property.key.name, { local: value.name });
+					if (value.type === "Identifier")
+						bindings.set(property.key.name, { local: value.name });
 					else if (
 						value.type === "AssignmentPattern" &&
 						value.left.type === "Identifier" &&
@@ -340,7 +363,8 @@ async function supportsSnippet(
 							local: value.left.name,
 							fallback: value.right.value,
 						});
-					} else if (property.key.name === propName || property.key.name === "as") return false;
+					} else if (property.key.name === propName || property.key.name === "as")
+						return false;
 				}
 			}
 		}
@@ -420,7 +444,9 @@ async function supportsSnippet(
 					case "RegularElement":
 						await visit(
 							node.fragment,
-							safe && safeContainers.has(node.name.toLowerCase()) && !shouldSkip(node),
+							safe &&
+								safeContainers.has(node.name.toLowerCase()) &&
+								!shouldSkip(node),
 						);
 						break;
 					case "SvelteElement": {
@@ -436,7 +462,9 @@ async function supportsSnippet(
 							(attribute) =>
 								attribute.type === "SpreadAttribute" ||
 								(attribute.type === "Attribute" &&
-									["contenteditable", "data-wakame-ignore"].includes(attribute.name.toLowerCase())),
+									["contenteditable", "data-wakame-ignore"].includes(
+										attribute.name.toLowerCase(),
+									)),
 						);
 						await visit(
 							node.fragment,
@@ -474,7 +502,8 @@ async function supportsSnippet(
 		// Reject unexamined references, including mutation, indirect calls, and
 		// children passed through another component or an unsupported AST node.
 		function hasUnexpectedReference(value: unknown): boolean {
-			if (typeof value !== "object" || value === null || allowedReferences.has(value)) return false;
+			if (typeof value !== "object" || value === null || allowedReferences.has(value))
+				return false;
 			if (Array.isArray(value)) return value.some(hasUnexpectedReference);
 			if (isNode(value) && typeOnlyNodes.has(value.type)) return false;
 			if (
