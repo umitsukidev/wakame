@@ -1,6 +1,6 @@
 {
 	"name": "@wakamejs/svelte",
-	"version": "0.1.0-alpha.1",
+	"version": "0.1.0",
 	"description": "Svelte preprocessor for inserting semantic wbr elements with Wakame",
 	"license": "MIT",
 	"repository": {

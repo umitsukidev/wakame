@@ -1,5 +1,12 @@
 # @wakamejs/astro
 
+## 0.1.5
+
+### Patch Changes
+
+- Updated dependencies [1b4089d]
+    - @wakamejs/vite@0.1.3
+
 ## 0.1.4
 
 ### Patch Changes

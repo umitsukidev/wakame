@@ -1,5 +1,11 @@
 # @wakamejs/sudachi
 
+## 0.2.1
+
+### Patch Changes
+
+- 1b4089d: Update dependencies.
+
 ## 0.2.0
 
 ### Minor Changes

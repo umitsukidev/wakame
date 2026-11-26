@@ -1,5 +1,11 @@
 # @wakamejs/budoux
 
+## 0.2.2
+
+### Patch Changes
+
+- 6452821: Update dependencies. Node.js requirements change to `>=22` for `@wakamejs/budoux` and `^22.18.0 || >=24.11.0` for `@wakamejs/react-rolldown`.
+
 ## 0.2.1
 
 ### Patch Changes

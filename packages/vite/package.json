@@ -1,6 +1,6 @@
 {
 	"name": "@wakamejs/vite",
-	"version": "0.1.2",
+	"version": "0.1.3",
 	"description": "Vite plugin for inserting semantic wbr elements with Wakame",
 	"license": "MIT",
 	"repository": {
