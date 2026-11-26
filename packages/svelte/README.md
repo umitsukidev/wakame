@@ -18,16 +18,16 @@ pnpm add -D @wakamejs/svelte @wakamejs/budoux
 import { defineConfig } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { createBudouxTokenizer } from "@wakamejs/budoux";
-import { wakameSvelteVite } from "@wakamejs/svelte/vite";
+import wakame from "@wakamejs/svelte/vite";
 
 const tokenizer = createBudouxTokenizer({ language: "ja" });
 
 export default defineConfig({
-    plugins: [wakameSvelteVite({ tokenizer }), svelte()],
+    plugins: [wakame({ tokenizer }), svelte()],
 });
 ```
 
-`wakameSvelteVite` は `svelte()` より前に配置してください。@sveltejs/vite-plugin-svelte 7 のプリプロセッサーの後、Svelte コンパイルの前に変換します。Vite のエイリアス設定もコンポーネントの解決に利用します。
+`wakame()` は `svelte()` より前に配置してください。@sveltejs/vite-plugin-svelte 7 のプリプロセッサーの後、Svelte コンパイルの前に変換します。Vite のエイリアス設定もコンポーネントの解決に利用します。
 
 ### `wakamePreprocess({ tokenizer, dictionary? })`
 

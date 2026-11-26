@@ -4,9 +4,7 @@ import type { Plugin } from "vite";
 import { createPreprocessor, type WakamePreprocessOptions } from "./internal.js";
 
 /** Run Wakame after ordinary Svelte preprocessing and before compilation. */
-export function wakameSvelteVite<TEntry = string>(
-	options: WakamePreprocessOptions<TEntry>,
-): Plugin {
+export default function wakame<TEntry = string>(options: WakamePreprocessOptions<TEntry>): Plugin {
 	return {
 		name: "wakame:svelte",
 		transform: {

@@ -3,7 +3,7 @@ import path from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { build, createServer, type Plugin } from "vite";
-import { wakameSvelteVite } from "../src/vite.js";
+import wakame from "../src/vite.js";
 
 const tokenizer = {
 	async tokenize(text: string) {
@@ -29,7 +29,7 @@ const source = `<script>import Card from '@/Card.svelte'; import Banner from '@/
 <Card as="section"><p>日本語</p><Banner>文章</Banner></Card><Card><p>既定</p></Card><Card as={tag}>動的</Card>
 <Bad>危険</Bad><Unknown>不明</Unknown><pre><Card>除外</Card></pre><div contenteditable><Card>編集</Card></div><Card>{text}</Card><Card><p>BEFORE</p></Card>`;
 
-describe("wakameSvelteVite", () => {
+describe("wakame Vite plugin", () => {
 	it.each(["serve", "build"] as const)(
 		"uses Vite resolution after preprocessing in %s",
 		async (mode) => {
@@ -64,7 +64,7 @@ describe("wakameSvelteVite", () => {
 				root: dir,
 				resolve: { alias: { "@": dir } },
 				plugins: [
-					wakameSvelteVite({ tokenizer }),
+					wakame({ tokenizer }),
 					capture,
 					svelte({
 						preprocess: {
@@ -114,7 +114,7 @@ describe("watching and maps", () => {
 		const target = path.join(dir, "Card.svelte");
 		await writeFile(target, card);
 		const watched: string[] = [];
-		const plugin = wakameSvelteVite({ tokenizer });
+		const plugin = wakame({ tokenizer });
 		const transform = plugin.transform;
 		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
 		const context = {
@@ -164,7 +164,7 @@ describe("component safety", () => {
 		const dir = await fixture();
 		const target = path.join(dir, "Card.svelte");
 		await writeFile(target, `<script>let { children } = $props();</script>${markup}`);
-		const plugin = wakameSvelteVite({ tokenizer });
+		const plugin = wakame({ tokenizer });
 		const transform = plugin.transform;
 		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
 		const handler = transform.handler as unknown as (
@@ -186,7 +186,7 @@ describe("component safety", () => {
 		const dir = await fixture();
 		const target = path.join(dir, "Card.svelte");
 		await writeFile(target, card);
-		const plugin = wakameSvelteVite({ tokenizer });
+		const plugin = wakame({ tokenizer });
 		const transform = plugin.transform;
 		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
 		const handler = transform.handler as unknown as (
@@ -218,7 +218,7 @@ describe("TypeScript runtime references", () => {
 				target,
 				`<script lang="ts">interface Props { as?: string; children: unknown } ${declarations}</script><svelte:element this={as}>{@render children()}</svelte:element>`,
 			);
-			const plugin = wakameSvelteVite({ tokenizer });
+			const plugin = wakame({ tokenizer });
 			const transform = plugin.transform;
 			if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
 			const handler = transform.handler as unknown as (
