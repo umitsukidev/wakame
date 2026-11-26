@@ -25,9 +25,9 @@ import type { Snippet } from "svelte";
 interface Props { as?: "div" | "section"; interactive?: boolean; children: Snippet }
 let { as = "div", interactive = false, children }: Props = $props();
 </script><svelte:element this={as} class:interactive>{@render children()}</svelte:element>`;
-const source = `<script>import Card from '@/Card.svelte'; import Banner from '@/Banner.svelte'; import Bad from '@/Bad.svelte'; import Unknown from '@/Unknown.svelte'; let tag = 'div'; let text = '日本語';</script>
+const source = `<script>import Card from '@/Card.svelte'; import Banner from '@/Banner.svelte'; import Bad from '@/Bad.svelte'; import Unknown from '@/Unknown.svelte'; import Section from '@/Section.svelte'; import UnsafeSection from '@/UnsafeSection.svelte'; let tag = 'div'; let text = '日本語';</script>
 <Card as="section"><p>日本語</p><Banner>文章</Banner></Card><Card><p>既定</p></Card><Card as={tag}>動的</Card>
-<Bad>危険</Bad><Unknown>不明</Unknown><pre><Card>除外</Card></pre><div contenteditable><Card>編集</Card></div><Card>{text}</Card><Card><p>BEFORE</p></Card>`;
+<Bad>危険</Bad><Unknown>不明</Unknown><pre><Card>除外</Card></pre><div contenteditable><Card>編集</Card></div><Card>{text}</Card><Card><p>BEFORE</p></Card><Section><p>入れ子</p></Section><UnsafeSection>危険</UnsafeSection>`;
 
 describe("wakame Vite plugin", () => {
 	it.each(["serve", "build"] as const)(
@@ -47,6 +47,14 @@ describe("wakame Vite plugin", () => {
 				writeFile(
 					path.join(dir, "Unknown.svelte"),
 					`<script>let { children } = $props();</script><Other>{@render children()}</Other>`,
+				),
+				writeFile(
+					path.join(dir, "Section.svelte"),
+					`<script>import Card from './Card.svelte'; let { children } = $props();</script><Card as="section"><div>{@render children()}</div></Card>`,
+				),
+				writeFile(
+					path.join(dir, "UnsafeSection.svelte"),
+					`<script>import Card from './Card.svelte'; let { children } = $props();</script><Card as="pre">{@render children()}</Card>`,
 				),
 				writeFile(path.join(dir, "Entry.svelte"), source),
 			]);
@@ -95,6 +103,8 @@ describe("wakame Vite plugin", () => {
 			expect(output).toContain("<Banner>文<wbr>章</Banner>");
 			expect(output).toContain("<p>既<wbr>定</p>");
 			expect(output).toContain("<p>前<wbr>処<wbr>理</p>");
+			expect(output).toContain("<Section><p>入<wbr>れ<wbr>子</p></Section>");
+			expect(output).toContain("<UnsafeSection>危険</UnsafeSection>");
 			for (const unchanged of [
 				"<Card as={tag}>動的</Card>",
 				"<Bad>危険</Bad>",
@@ -236,4 +246,40 @@ describe("TypeScript runtime references", () => {
 			expect(await handler.call(context, source, path.join(dir, "Entry.svelte"))).toBeUndefined();
 		},
 	);
+});
+
+describe("nested component resolution", () => {
+	it("rejects cycles and watches every consulted component", async () => {
+		const dir = await fixture();
+		const a = path.join(dir, "A.svelte");
+		const b = path.join(dir, "B.svelte");
+		await writeFile(
+			a,
+			`<script>import B from './B.svelte'; let { children } = $props();</script><B>{@render children()}</B>`,
+		);
+		await writeFile(
+			b,
+			`<script>import A from './A.svelte'; let { children } = $props();</script><A>{@render children()}</A>`,
+		);
+		const watched: string[] = [];
+		const transform = wakame({ tokenizer }).transform;
+		if (!transform || typeof transform === "function") throw new Error("Expected transform hook");
+		const handler = transform.handler as unknown as (
+			this: object,
+			code: string,
+			id: string,
+		) => Promise<unknown>;
+		const context = {
+			async resolve(specifier: string, importer: string) {
+				return { id: path.resolve(path.dirname(importer), specifier), external: false };
+			},
+			addWatchFile(id: string) {
+				watched.push(id);
+			},
+		};
+		const source = `<script>import A from './A.svelte';</script><A>日本語</A>`;
+		expect(await handler.call(context, source, path.join(dir, "Entry.svelte"))).toBeUndefined();
+		expect(watched).toContain(a);
+		expect(watched).toContain(b);
+	});
 });

@@ -147,7 +147,10 @@ export function wakamePreprocess<TEntry = string>(
 	return createPreprocessor(options);
 }
 
-type ComponentResolver = (specifier: string, importer: string) => Promise<string | undefined>;
+type ComponentResolver = (
+	specifier: string,
+	importer: string,
+) => Promise<{ id: string; source: string } | undefined>;
 
 /** @internal Used by the Vite entry to resolve components with Vite's resolver. */
 export function createPreprocessor<TEntry>(
@@ -161,34 +164,7 @@ export function createPreprocessor<TEntry>(
 			const ast = parse(content, { modern: true, ...(filename === undefined ? {} : { filename }) });
 			if (ast.options?.namespace && ast.options.namespace !== "html") return;
 			const output = new MagicString(content);
-			const imports = new Map<string, string>();
-			for (const statement of ast.instance?.content.body ?? []) {
-				if (statement.type !== "ImportDeclaration" || typeof statement.source.value !== "string")
-					continue;
-				for (const specifier of statement.specifiers) {
-					if (specifier.type === "ImportDefaultSpecifier")
-						imports.set(specifier.local.name, statement.source.value);
-				}
-			}
-
-			// A local binding can shadow an import inside a block or snippet. Any
-			// identifier reference outside the import makes that name ambiguous.
-			function excludeAmbiguousImports(value: unknown): void {
-				if (typeof value !== "object" || value === null) return;
-				if (Array.isArray(value)) {
-					for (const item of value) excludeAmbiguousImports(item);
-					return;
-				}
-				const node = value as Record<string, unknown>;
-				if (
-					node.type === "ImportDeclaration" ||
-					(typeof node.type === "string" && typeOnlyNodes.has(node.type))
-				)
-					return;
-				if (node.type === "Identifier" && typeof node.name === "string") imports.delete(node.name);
-				for (const child of Object.values(node)) excludeAmbiguousImports(child);
-			}
-			if (resolveComponent) excludeAmbiguousImports(ast);
+			const imports = componentImports(ast);
 
 			async function visitText(node: AST.Text): Promise<void> {
 				// Decoded entities and normalized line endings do not have matching source offsets.
@@ -240,7 +216,16 @@ export function createPreprocessor<TEntry>(
 								)
 							) {
 								const callee = await resolveComponent(specifier, filename);
-								if (callee && supportsChildren(callee, node))
+								if (
+									callee &&
+									(await supportsChildren(
+										callee.source,
+										callee.id,
+										node,
+										resolveComponent,
+										new Set([filename, callee.id]),
+									))
+								)
 									await visitFragment(node.fragment, true, false);
 							}
 							break;
@@ -293,7 +278,13 @@ export function createPreprocessor<TEntry>(
 
 // The supported component shape is intentionally narrow: a $props destructure and
 // direct children() render sites whose complete HTML ancestry can be checked.
-function supportsChildren(source: string, caller: AST.Component): boolean {
+async function supportsChildren(
+	source: string,
+	filename: string,
+	caller: AST.Component,
+	resolveComponent: ComponentResolver,
+	ancestors: Set<string>,
+): Promise<boolean> {
 	try {
 		const ast = parse(source, { modern: true });
 		if (ast.options?.namespace && ast.options.namespace !== "html") return false;
@@ -370,9 +361,10 @@ function supportsChildren(source: string, caller: AST.Component): boolean {
 			}
 			dynamicBindings.set(binding.local, value);
 		}
+		const imports = componentImports(ast);
 		let found = 0;
 		let unsafe = false;
-		function visit(fragment: AST.Fragment, safe: boolean): void {
+		async function visit(fragment: AST.Fragment, safe: boolean): Promise<void> {
 			for (const node of fragment.nodes) {
 				switch (node.type) {
 					case "RenderTag":
@@ -387,8 +379,34 @@ function supportsChildren(source: string, caller: AST.Component): boolean {
 							if (!safe) unsafe = true;
 						}
 						break;
+					case "Component": {
+						let childSafe = false;
+						const specifier = imports.get(node.name);
+						if (
+							safe &&
+							specifier &&
+							!node.attributes.some(
+								(attribute) =>
+									attribute.type === "SpreadAttribute" ||
+									(attribute.type === "Attribute" && attribute.name === "children"),
+							)
+						) {
+							const component = await resolveComponent(specifier, filename);
+							if (component && !ancestors.has(component.id)) {
+								childSafe = await supportsChildren(
+									component.source,
+									component.id,
+									node,
+									resolveComponent,
+									new Set([...ancestors, component.id]),
+								);
+							}
+						}
+						await visit(node.fragment, childSafe);
+						break;
+					}
 					case "RegularElement":
-						visit(
+						await visit(
 							node.fragment,
 							safe && safeContainers.has(node.name.toLowerCase()) && !shouldSkip(node),
 						);
@@ -408,7 +426,7 @@ function supportsChildren(source: string, caller: AST.Component): boolean {
 								(attribute.type === "Attribute" &&
 									["contenteditable", "data-wakame-ignore"].includes(attribute.name.toLowerCase())),
 						);
-						visit(
+						await visit(
 							node.fragment,
 							safe &&
 								!!name &&
@@ -419,28 +437,28 @@ function supportsChildren(source: string, caller: AST.Component): boolean {
 						break;
 					}
 					case "IfBlock":
-						visit(node.consequent, safe);
-						if (node.alternate) visit(node.alternate, safe);
+						await visit(node.consequent, safe);
+						if (node.alternate) await visit(node.alternate, safe);
 						break;
 					case "EachBlock":
-						visit(node.body, safe);
-						if (node.fallback) visit(node.fallback, safe);
+						await visit(node.body, safe);
+						if (node.fallback) await visit(node.fallback, safe);
 						break;
 					case "AwaitBlock":
-						if (node.pending) visit(node.pending, safe);
-						if (node.then) visit(node.then, safe);
-						if (node.catch) visit(node.catch, safe);
+						if (node.pending) await visit(node.pending, safe);
+						if (node.then) await visit(node.then, safe);
+						if (node.catch) await visit(node.catch, safe);
 						break;
 					case "KeyBlock":
-						visit(node.fragment, safe);
+						await visit(node.fragment, safe);
 						break;
 					case "SnippetBlock":
-						visit(node.body, false);
+						await visit(node.body, false);
 						break;
 				}
 			}
 		}
-		visit(ast.fragment, true);
+		await visit(ast.fragment, true);
 		// Reject unexamined references, including mutation, indirect calls, and
 		// children passed through another component or an unsupported AST node.
 		function hasUnexpectedReference(value: unknown): boolean {
@@ -460,4 +478,35 @@ function supportsChildren(source: string, caller: AST.Component): boolean {
 	} catch {
 		return false;
 	}
+}
+
+// A local binding can shadow an import inside a block or snippet. Any
+// identifier reference outside the import makes that name ambiguous.
+function componentImports(ast: AST.Root): Map<string, string> {
+	const imports = new Map<string, string>();
+	for (const statement of ast.instance?.content.body ?? []) {
+		if (statement.type !== "ImportDeclaration" || typeof statement.source.value !== "string")
+			continue;
+		for (const specifier of statement.specifiers) {
+			if (specifier.type === "ImportDefaultSpecifier")
+				imports.set(specifier.local.name, statement.source.value);
+		}
+	}
+	function excludeAmbiguousImports(value: unknown): void {
+		if (typeof value !== "object" || value === null) return;
+		if (Array.isArray(value)) {
+			for (const item of value) excludeAmbiguousImports(item);
+			return;
+		}
+		const node = value as Record<string, unknown>;
+		if (
+			node.type === "ImportDeclaration" ||
+			(typeof node.type === "string" && typeOnlyNodes.has(node.type))
+		)
+			return;
+		if (node.type === "Identifier" && typeof node.name === "string") imports.delete(node.name);
+		for (const child of Object.values(node)) excludeAmbiguousImports(child);
+	}
+	excludeAmbiguousImports(ast);
+	return imports;
 }
